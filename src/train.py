@@ -30,6 +30,7 @@ import numpy as np
 from gym import wrappers
 from policy import Policy
 from value_function import NNValueFunction
+from predictor import Predictor
 import scipy.signal
 from utils import Logger, Scaler
 from datetime import datetime
@@ -90,13 +91,11 @@ def run_episode(env, policy, scaler, animate=False):
     done = False
     step = 0.0
     scale, offset = scaler.get()
-    scale[-1] = 1.0  # don't scale time step feature
-    offset[-1] = 0.0  # don't offset time step feature
+
     while not done:
         if animate:
             env.render()
         obs = obs.astype(np.float32).reshape((1, -1))
-        obs = np.append(obs, [[step]], axis=1)  # add time step feature
         unscaled_obs.append(obs)
         obs = (obs - offset) * scale  # center and scale observations
         observes.append(obs)
@@ -289,7 +288,6 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
         hid1_mult: hid1 size for policy and value_f (mutliplier of obs dimension)
         policy_logvar: natural log of initial policy variance
     """
-    
 
     killer = GracefulKiller()
     env, obs_dim, act_dim = init_gym(env_name)
@@ -298,10 +296,11 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
     logger = Logger(logname=env_name, now=now)
     scaler = Scaler(obs_dim)
     policy = Policy(obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar)
+    predictor = Predictor(obs_dim, act_dim)
 
     if evaluate:
         print("Evaluating: ")
-        eval_agent(env, policy, logger, obs_dim, act_dim, 5)
+        eval_agent(env, policy, predictor, logger, obs_dim, act_dim, 5)
         exit()
 
     if load_ckpt:
@@ -314,26 +313,17 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
     while episode < num_episodes:
         trajectories = run_policy(env, policy, scaler, logger, batch_size, animate)
         episode += len(trajectories)
-        add_value(trajectories, val_func)  # add estimated values to episodes
-        add_disc_sum_rew(trajectories, gamma)  # calculated discounted sum of Rs
-        add_gae(trajectories, gamma, lam)  # calculate advantage
-        # concatenate all episodes into single NumPy arrays
-        observes, actions, advantages, disc_sum_rew = build_train_set(trajectories)
-        # add various stats to training log:
-        log_batch_stats(observes, actions, advantages, disc_sum_rew, logger, episode)
-        policy.update(observes, actions, advantages, logger)  # update policy
-        val_func.fit(observes, disc_sum_rew, logger)  # update value function
-        logger.write(display=True)  # write logger results to file and stdout
+
+
+        # Train predictor
+
+
         if killer.kill_now:
             if input('Terminate training (y/[n])? ') == 'y':
                 break
             killer.kill_now = False
     logger.close()
-    policy.save_weights()
     policy.close_sess()
-    val_func.save_weights()
-    print("Saved policy and VF weights.")
-    val_func.close_sess()
 
 
 if __name__ == "__main__":
