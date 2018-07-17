@@ -37,6 +37,7 @@ from datetime import datetime
 import os
 import argparse
 import signal
+import random
 
 
 class GracefulKiller:
@@ -89,7 +90,6 @@ def run_episode(env, policy, scaler, animate=False):
     obs = env.reset()
     observes, actions, rewards, unscaled_obs = [], [], [], []
     done = False
-    step = 0.0
     scale, offset = scaler.get()
 
     while not done:
@@ -106,7 +106,7 @@ def run_episode(env, policy, scaler, animate=False):
         if not isinstance(reward, float):
             reward = np.asscalar(reward)
         rewards.append(reward)
-        step += 1e-3  # increment time step feature
+
 
     return (np.concatenate(observes), np.concatenate(actions),
             np.array(rewards, dtype=np.float64), np.concatenate(unscaled_obs))
@@ -260,7 +260,6 @@ def log_batch_stats(observes, actions, advantages, disc_sum_rew, logger, episode
                 })
 
 
-
 def eval_agent(env, policy, logger, obs_dim, act_dim, num_episodes):
 
     policy.restore_weights()
@@ -273,6 +272,26 @@ def eval_agent(env, policy, logger, obs_dim, act_dim, num_episodes):
         run_episode(env, policy, scaler, True)
 
     env.kill()
+
+
+def make_predictor_dataset(trajectories):
+
+    # Make list of all [obs,act,n_obs]
+    obss, acts, n_obss = [], [], []
+    for traj in trajectories:
+        observation_list = traj['unscaled_obs']
+        action_list = traj['actions']
+
+        # Add to dataset lists
+        obss.extend(observation_list[:-1])
+        n_obss.extend(observation_list[1:])
+        acts.extend(action_list[:-1])
+
+    # Shuffle list randomly to decorrelate states
+    c = list(zip(obss, acts, n_obss))
+    random.shuffle(c)
+
+    return zip(*c)
 
 
 def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, policy_logvar, animate, evaluate, load_ckpt):
@@ -291,7 +310,6 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
 
     killer = GracefulKiller()
     env, obs_dim, act_dim = init_gym(env_name)
-    obs_dim += 1  # add 1 to obs dimension for time step feature (see run_episode())
     now = datetime.utcnow().strftime("%b-%d_%H:%M:%S")  # create unique directories
     logger = Logger(logname=env_name, now=now)
     scaler = Scaler(obs_dim)
@@ -314,9 +332,16 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
         trajectories = run_policy(env, policy, scaler, logger, batch_size, animate)
         episode += len(trajectories)
 
-
         # Train predictor
-
+        errvec = []
+        pbs = 64
+        obs_dataset, act_dataset, n_obs_dataset = make_predictor_dataset(trajectories)
+        for i in range(len(obs_dataset) // pbs - 1):
+            obs = obs_dataset[i * pbs : i * pbs + pbs]
+            act = act_dataset[i * pbs: i * pbs + pbs]
+            n_obs = n_obs_dataset[i * pbs: i * pbs + pbs]
+            errvec.append(predictor.train(obs, act, n_obs))
+            print("Batch {}/{}, Total error: {}".format(episode, num_episodes, sum(errvec[-1])))
 
         if killer.kill_now:
             if input('Terminate training (y/[n])? ') == 'y':
