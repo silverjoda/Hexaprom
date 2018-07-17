@@ -28,15 +28,19 @@ class Predictor(object):
         with self.g.as_default():
 
             self.obs_ph = tf.placeholder(tf.float32, (None, self.obs_dim), 'obs')
-            self.n_obs_ph = tf.placeholder(tf.float32, (None, self.obs_dim), 'n_obs')
             self.act_ph = tf.placeholder(tf.float32, (None, self.act_dim), 'act')
+            self.rew_ph = tf.placeholder(tf.float32, (None, 1), 'rew')
+            self.n_obs_ph = tf.placeholder(tf.float32, (None, self.obs_dim), 'n_obs')
 
             self.l1 = tfl.fully_connected(tf.concat([self.obs_ph, self.act_ph], 1), 180, 'relu', weights_init='xavier')
-            self.l2 = tfl.fully_connected(self.l1, 180, 'relu', weights_init='xavier')
-            self.out = tfl.fully_connected(self.l2, self.obs_dim, 'linear', weights_init='xavier')
+            self.l2_act = tfl.fully_connected(self.l1, 180, 'relu', weights_init='xavier')
+            self.l2_rew = tfl.fully_connected(self.l1, 64, 'relu', weights_init='xavier')
+            self.out_state = tfl.fully_connected(self.l2_act, self.obs_dim, 'linear', weights_init='xavier')
+            self.out_rew = tfl.fully_connected(self.l2_rew, 1, 'linear', weights_init='xavier')
 
-            self.prediction_loss_vec = tf.square(self.out - self.n_obs_ph)
-            self.prediction_loss = tf.reduce_mean(self.prediction_loss_vec)
+            self.state_prediction_loss_vec = tf.square(self.out_state - self.n_obs_ph)
+            self.rew_prediction_loss = tf.square(self.out_rew - self.rew_ph)
+            self.prediction_loss = tf.reduce_mean(self.state_prediction_loss_vec) + tf.reduce_mean(self.rew_prediction_loss)
             self.optim = tf.train.AdamOptimizer(self.lr).minimize(self.prediction_loss)
 
             self.init = tf.global_variables_initializer()
@@ -47,16 +51,17 @@ class Predictor(object):
         self.sess = tf.Session(graph=self.g)
         self.sess.run(self.init)
 
-    def train(self, obs_batch, act_batch, n_obs_batch):
-        feed_dict = {self.obs_ph : obs_batch, self.act_ph : act_batch, self.n_obs_ph : n_obs_batch}
-        _, loss_vec = self.sess.run([self.optim, self.prediction_loss_vec], feed_dict=feed_dict)
-        return loss_vec
+    def train(self, obs_batch, act_batch, rew_batch, n_obs_batch):
+        feed_dict = {self.obs_ph : obs_batch, self.act_ph : act_batch, self.rew_ph : rew_batch, self.n_obs_ph : n_obs_batch}
+        _, state_loss_vec, rew_loss = self.sess.run([self.optim, self.state_prediction_loss_vec, self.rew_prediction_loss], feed_dict=feed_dict)
+        return state_loss_vec, rew_loss
 
-    def predict(self, obs):
+    def predict(self, obs, act):
         """Draw sample from prediction policy """
-        feed_dict = {self.obs_ph: obs}
+        feed_dict = {self.obs_ph : obs, self.act_ph : act}
 
-        return self.sess.run(self.out, feed_dict=feed_dict)
+        state, rew = self.sess.run([self.out_state, self.out_rew], feed_dict=feed_dict)
+        return state[0], rew[0]
 
     def close_sess(self):
         """ Close TensorFlow session """

@@ -277,18 +277,20 @@ def eval_agent(env, policy, logger, obs_dim, act_dim, num_episodes):
 def make_predictor_dataset(trajectories):
 
     # Make list of all [obs,act,n_obs]
-    obss, acts, n_obss = [], [], []
+    obss, acts, rews, n_obss = [], [], []
     for traj in trajectories:
-        observation_list = traj['unscaled_obs']
         action_list = traj['actions']
+        reward_list = traj['rewards']
+        observation_list = traj['unscaled_obs']
 
         # Add to dataset lists
         obss.extend(observation_list[:-1])
-        n_obss.extend(observation_list[1:])
         acts.extend(action_list[:-1])
+        rews.extend(reward_list[:-1])
+        n_obss.extend(observation_list[1:])
 
     # Shuffle list randomly to decorrelate states
-    c = list(zip(obss, acts, n_obss))
+    c = list(zip(obss, acts, rews, n_obss))
     random.shuffle(c)
 
     return zip(*c)
@@ -335,7 +337,7 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
         # Train predictor
         errvec = []
         pbs = 64
-        obs_dataset, act_dataset, n_obs_dataset = make_predictor_dataset(trajectories)
+        obs_dataset, act_dataset, rew_dataset, n_obs_dataset = make_predictor_dataset(trajectories)
         for i in range(len(obs_dataset) // pbs - 1):
             obs = obs_dataset[i * pbs : i * pbs + pbs]
             act = act_dataset[i * pbs: i * pbs + pbs]
