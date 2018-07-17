@@ -352,10 +352,33 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
             state_err, rew_err = predictor.train(obs, act, rew, n_obs)
             state_errveclist.append(state_err)
             rew_errlist.append(rew_err)
-            print("Batch {}/{}, Total state error: {}, Total rew error: {}".format(episode + i,
-                                                                                   num_episodes,
-                                                                                   np.mean([np.mean(s) for s in state_err]),
-                                                                                   np.mean([np.mean(r) for r in rew_err])))
+
+            n_examples = len(state_err)
+
+            q_total_err, z_err, quat_err, joint_err, v_total_err, xyzvel_err, anglevel_err, joint_vel_err = 0,0,0,0,0,0,0,0
+            for i in range(n_examples):
+                q_total_err += np.mean(state_err[i][:23])
+                z_err += state_err[i][0]
+                quat_err += np.mean(state_err[i][1:5])
+                joint_err += np.mean(state_err[i][5:24])
+
+                v_total_err += np.mean(state_err[i][24:])
+                xyzvel_err += np.mean(state_err[i][24:27])
+                anglevel_err += np.mean(state_err[i][27:30])
+                joint_vel_err += np.mean(state_err[i][30:47])
+
+            q_total_err /= n_examples
+            z_err /= n_examples
+            quat_err /= n_examples
+            joint_err /= n_examples
+            v_total_err /= n_examples
+            xyzvel_err /= n_examples
+            anglevel_err /= n_examples
+            joint_vel_err /= n_examples
+
+            print("Batch {}/{}, Total state error: {}, Total rew error: {}, Q_total_err: {}, z_err: {}, quat_err: {}, joint_err: {}, v_total_err: {}, xyzvel_err: {}, anglevel_err: {}, joint_vel_err: {}".
+                  format(episode + i,num_episodes,np.mean([np.mean(s) for s in state_err]),np.mean([np.mean(r) for r in rew_err]),
+                         q_total_err, z_err, quat_err, joint_err, v_total_err, xyzvel_err, anglevel_err, joint_vel_err))
 
         # TODO: MAKE REALTIME PLOT OF VARIOUS PARTS OF STATE PREDICTION TO SEE WHICH ERRORS ARE LARGEST
 
