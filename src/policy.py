@@ -9,7 +9,7 @@ import os
 
 class Policy(object):
     """ NN-based policy approximation """
-    def __init__(self, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, clipping_range=None):
+    def __init__(self, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, clipping_range=None, random=False):
         """
         Args:
             obs_dim: num observation dimensions (int)
@@ -29,6 +29,7 @@ class Policy(object):
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self.clipping_range = clipping_range
+        self.random = random
         self._build_graph()
         self._init_session()
 
@@ -138,10 +139,13 @@ class Policy(object):
                               tf.reduce_sum(self.log_vars))
 
     def _sample(self):
-        """ Sample from distribution, given observation """
-        self.sampled_act = (self.means +
-                            tf.exp(self.log_vars / 2.0) *
-                            tf.random_normal(shape=(self.act_dim,)))
+        if self.random:
+            self.sampled_act = (tf.random_normal(shape=(self.act_dim,)))
+        else:
+            """ Sample from distribution, given observation """
+            self.sampled_act = (self.means +
+                                tf.exp(self.log_vars / 2.0) *
+                                tf.random_normal(shape=(self.act_dim,)))
 
     def _loss_train_op(self):
         """

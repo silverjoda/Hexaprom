@@ -27,6 +27,7 @@ the MuJoCo control tasks.
 """
 import gym
 import numpy as np
+import matplotlib.pyplot as plt
 from gym import wrappers
 from policy import Policy
 from value_function import NNValueFunction
@@ -315,7 +316,7 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
     now = datetime.utcnow().strftime("%b-%d_%H:%M:%S")  # create unique directories
     logger = Logger(logname=env_name, now=now)
     scaler = Scaler(obs_dim)
-    policy = Policy(obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar)
+    policy = Policy(obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, random=True)
     predictor = Predictor(obs_dim, act_dim)
 
     if evaluate:
@@ -330,20 +331,37 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
     # run a few episodes of untrained policy to initialize scaler:
     run_policy(env, policy, scaler, logger, 5, animate)
     episode = 0
+
+    # Error lists
+    state_errveclist = []
+    rew_errlist = []
+
+    # Plot vars
+    fig = plt.gcf()
+    fig.show()
+    fig.canvas.draw()
+
     while episode < num_episodes:
         trajectories = run_policy(env, policy, scaler, logger, batch_size, animate)
-        episode += len(trajectories)
 
         # Train predictor
-        errvec = []
         pbs = 64
         obs_dataset, act_dataset, rew_dataset, n_obs_dataset = make_predictor_dataset(trajectories)
         for i in range(len(obs_dataset) // pbs - 1):
             obs = obs_dataset[i * pbs : i * pbs + pbs]
-            act = act_dataset[i * pbs: i * pbs + pbs]
+            act = act_dataset[i * pbs : i * pbs + pbs]
+            rew = rew_dataset[i * pbs : i * pbs + pbs]
             n_obs = n_obs_dataset[i * pbs: i * pbs + pbs]
-            errvec.append(predictor.train(obs, act, n_obs))
-            print("Batch {}/{}, Total error: {}".format(episode, num_episodes, sum(errvec[-1])))
+            state_err, rew_err = predictor.train(obs, act, rew, n_obs)
+            state_errveclist.append(state_err)
+            rew_errlist.append(rew_err)
+            print("Batch {}/{}, Total state error: {}, Total rew error: {}".format(episode + i, num_episodes, sum(state_err), rew_err))
+
+        plt.plot([sum(sv) for sv in state_errveclist])
+        plt.plot(rew_errlist)
+        fig.canvas.draw()
+
+        episode += len(trajectories)
 
         if killer.kill_now:
             if input('Terminate training (y/[n])? ') == 'y':
