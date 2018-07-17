@@ -278,7 +278,7 @@ def eval_agent(env, policy, logger, obs_dim, act_dim, num_episodes):
 def make_predictor_dataset(trajectories):
 
     # Make list of all [obs,act,n_obs]
-    obss, acts, rews, n_obss = [], [], []
+    obss, acts, rews, n_obss = [], [], [], []
     for traj in trajectories:
         action_list = traj['actions']
         reward_list = traj['rewards']
@@ -336,10 +336,7 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
     state_errveclist = []
     rew_errlist = []
 
-    # Plot vars
-    fig = plt.gcf()
-    fig.show()
-    fig.canvas.draw()
+
 
     while episode < num_episodes:
         trajectories = run_policy(env, policy, scaler, logger, batch_size, animate)
@@ -355,11 +352,12 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
             state_err, rew_err = predictor.train(obs, act, rew, n_obs)
             state_errveclist.append(state_err)
             rew_errlist.append(rew_err)
-            print("Batch {}/{}, Total state error: {}, Total rew error: {}".format(episode + i, num_episodes, sum(state_err), rew_err))
+            print("Batch {}/{}, Total state error: {}, Total rew error: {}".format(episode + i,
+                                                                                   num_episodes,
+                                                                                   np.mean([np.mean(s) for s in state_err]),
+                                                                                   np.mean([np.mean(r) for r in rew_err])))
 
-        plt.plot([sum(sv) for sv in state_errveclist])
-        plt.plot(rew_errlist)
-        fig.canvas.draw()
+        # TODO: MAKE REALTIME PLOT OF VARIOUS PARTS OF STATE PREDICTION TO SEE WHICH ERRORS ARE LARGEST
 
         episode += len(trajectories)
 
@@ -384,7 +382,7 @@ if __name__ == "__main__":
                         default=0.003)
     parser.add_argument('-b', '--batch_size', type=int,
                         help='Number of episodes per training batch',
-                        default=20)
+                        default=10)
     parser.add_argument('-m', '--hid1_mult', type=int,
                         help='Size of first hidden layer for value and policy NNs'
                              '(integer multiplier of observation dimension)',

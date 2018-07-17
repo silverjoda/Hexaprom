@@ -32,10 +32,14 @@ class Predictor(object):
             self.rew_ph = tf.placeholder(tf.float32, (None, 1), 'rew')
             self.n_obs_ph = tf.placeholder(tf.float32, (None, self.obs_dim), 'n_obs')
 
-            self.l1 = tfl.fully_connected(tf.concat([self.obs_ph, self.act_ph], 1), 180, 'relu', weights_init='xavier')
-            self.l2_act = tfl.fully_connected(self.l1, 180, 'relu', weights_init='xavier')
-            self.l2_rew = tfl.fully_connected(self.l1, 64, 'relu', weights_init='xavier')
+            self.l1 = tfl.fully_connected(tf.concat([self.obs_ph, self.act_ph], 1), 300, 'relu', weights_init='xavier')
+
+            self.l1_act = tfl.fully_connected(self.l1, 240, 'relu', weights_init='xavier')
+            self.l2_act = tfl.fully_connected(self.l1_act, 240, 'relu', weights_init='xavier')
             self.out_state = tfl.fully_connected(self.l2_act, self.obs_dim, 'linear', weights_init='xavier')
+
+            self.l1_rew = tfl.fully_connected(self.l1, 96, 'relu', weights_init='xavier')
+            self.l2_rew = tfl.fully_connected(self.l1_rew, 64, 'relu', weights_init='xavier')
             self.out_rew = tfl.fully_connected(self.l2_rew, 1, 'linear', weights_init='xavier')
 
             self.state_prediction_loss_vec = tf.square(self.out_state - self.n_obs_ph)
@@ -52,7 +56,7 @@ class Predictor(object):
         self.sess.run(self.init)
 
     def train(self, obs_batch, act_batch, rew_batch, n_obs_batch):
-        feed_dict = {self.obs_ph : obs_batch, self.act_ph : act_batch, self.rew_ph : rew_batch, self.n_obs_ph : n_obs_batch}
+        feed_dict = {self.obs_ph : obs_batch, self.act_ph : act_batch, self.rew_ph : np.expand_dims(rew_batch, 1), self.n_obs_ph : n_obs_batch}
         _, state_loss_vec, rew_loss = self.sess.run([self.optim, self.state_prediction_loss_vec, self.rew_prediction_loss], feed_dict=feed_dict)
         return state_loss_vec, rew_loss
 
