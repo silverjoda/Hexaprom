@@ -336,7 +336,8 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
     state_errveclist = []
     rew_errlist = []
 
-
+    moving_avg = 0
+    h = 100
 
     while episode < num_episodes:
         trajectories = run_policy(env, policy, scaler, logger, batch_size, animate)
@@ -355,32 +356,38 @@ def main(env_name, num_episodes, gamma, lam, kl_targ, batch_size, hid1_mult, pol
 
             n_examples = len(state_err)
 
-            q_total_err, z_err, quat_err, joint_err, v_total_err, xyzvel_err, anglevel_err, joint_vel_err = 0,0,0,0,0,0,0,0
-            for i in range(n_examples):
-                q_total_err += np.mean(state_err[i][:23])
-                z_err += state_err[i][0]
-                quat_err += np.mean(state_err[i][1:5])
-                joint_err += np.mean(state_err[i][5:24])
+            # q_total_err, z_err, quat_err, joint_err, v_total_err, xyzvel_err, anglevel_err, joint_vel_err = 0,0,0,0,0,0,0,0
+            # for j in range(n_examples):
+            #     q_total_err += np.mean(state_err[j][:24])
+            #     z_err += state_err[j][0]
+            #     quat_err += np.mean(state_err[j][1:5])
+            #     joint_err += np.mean(state_err[j][5:24])
+            #
+            #     v_total_err += np.mean(state_err[j][24:])
+            #     xyzvel_err += np.mean(state_err[j][24:27])
+            #     anglevel_err += np.mean(state_err[j][27:30])
+            #     joint_vel_err += np.mean(state_err[j][30:47])
+            #
+            # q_total_err /= n_examples
+            # z_err /= n_examples
+            # quat_err /= n_examples
+            # joint_err /= n_examples
+            # v_total_err /= n_examples
+            # xyzvel_err /= n_examples
+            # anglevel_err /= n_examples
+            # joint_vel_err /= n_examples
+            #
+            # print("Batch {}/{}, Total state error: {}, Total rew error: {}, Q_total_err: {}, z_err: {}, quat_err: {}, joint_err: {}, v_total_err: {}, xyzvel_err: {}, anglevel_err: {}, joint_vel_err: {}".
+            #       format(episode + i,num_episodes,np.mean([np.mean(s) for s in state_err]),np.mean([np.mean(r) for r in rew_err]),
+            #              q_total_err, z_err, quat_err, joint_err, v_total_err, xyzvel_err, anglevel_err, joint_vel_err))
 
-                v_total_err += np.mean(state_err[i][24:])
-                xyzvel_err += np.mean(state_err[i][24:27])
-                anglevel_err += np.mean(state_err[i][27:30])
-                joint_vel_err += np.mean(state_err[i][30:47])
+            total_err = np.mean([np.mean(s) for s in state_err])
+            total_rew_err = np.mean([np.mean(r) for r in rew_err])
 
-            q_total_err /= n_examples
-            z_err /= n_examples
-            quat_err /= n_examples
-            joint_err /= n_examples
-            v_total_err /= n_examples
-            xyzvel_err /= n_examples
-            anglevel_err /= n_examples
-            joint_vel_err /= n_examples
+            moving_avg += (total_err / h - moving_avg / h)
 
-            print("Batch {}/{}, Total state error: {}, Total rew error: {}, Q_total_err: {}, z_err: {}, quat_err: {}, joint_err: {}, v_total_err: {}, xyzvel_err: {}, anglevel_err: {}, joint_vel_err: {}".
-                  format(episode + i,num_episodes,np.mean([np.mean(s) for s in state_err]),np.mean([np.mean(r) for r in rew_err]),
-                         q_total_err, z_err, quat_err, joint_err, v_total_err, xyzvel_err, anglevel_err, joint_vel_err))
-
-        # TODO: MAKE REALTIME PLOT OF VARIOUS PARTS OF STATE PREDICTION TO SEE WHICH ERRORS ARE LARGEST
+            print("Batch {}/{}, Total state error: {}, Moving avg: {}, Total rew error: {},".
+                  format(episode + i, num_episodes, total_err, moving_avg, total_rew_err))
 
         episode += len(trajectories)
 

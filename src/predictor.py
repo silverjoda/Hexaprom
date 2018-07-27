@@ -12,7 +12,7 @@ class Predictor(object):
     """ NN-based policy approximation """
     def __init__(self, obs_dim, act_dim):
 
-        self.lr = 1e-4
+        self.lr = 1e-3
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self._build_graph()
@@ -34,12 +34,12 @@ class Predictor(object):
 
             self.l1 = tfl.fully_connected(tf.concat([self.obs_ph, self.act_ph], 1), 300, 'relu', weights_init='xavier')
 
-            self.l1_act = tfl.fully_connected(self.l1, 240, 'relu', weights_init='xavier')
-            self.l2_act = tfl.fully_connected(self.l1_act, 240, 'relu', weights_init='xavier')
+            self.l1_act = tfl.fully_connected(self.l1, 240, 'tanh', weights_init='xavier')
+            self.l2_act = tfl.fully_connected(self.l1_act, 240, 'tanh', weights_init='xavier')
             self.out_state = tfl.fully_connected(self.l2_act, self.obs_dim, 'linear', weights_init='xavier')
 
-            self.l1_rew = tfl.fully_connected(self.l1, 96, 'relu', weights_init='xavier')
-            self.l2_rew = tfl.fully_connected(self.l1_rew, 64, 'relu', weights_init='xavier')
+            self.l1_rew = tfl.fully_connected(self.l1, 96, 'tanh', weights_init='xavier')
+            self.l2_rew = tfl.fully_connected(self.l1_rew, 64, 'tanh', weights_init='xavier')
             self.out_rew = tfl.fully_connected(self.l2_rew, 1, 'linear', weights_init='xavier')
 
             self.state_prediction_loss_vec = tf.square(self.out_state - self.n_obs_ph)
