@@ -1,7 +1,8 @@
 import numpy as np
+import gym
 np.random.seed(0)
 
-def nn(w):
+def make_nn(w):
     def forward_pass(x):
         return np.matmul(w[0:5])
     return forward_pass
@@ -13,7 +14,7 @@ def genweights(nn_struct):
 def f(w):
 
     # ... 1) create a neural network with weights w
-    policy = nn(w)
+    policy = make_nn(w)
 
     # ... 2) run the neural network on the environment for some time
     # ... 3) sum up and return the total reward
@@ -31,15 +32,19 @@ input_dim = 8
 act_dim = 8
 nn_struct = [input_dim, act_dim, 5, 5]
 
+# Make environment
+env = gym.make("Hopper-v0")
+
 # Generate weights from nn_struct
+w = genweights(nn_struct)
 
+solution = 0
 
-w = np.random.randn(3) # our initial guess is random
 for i in range(300):
 
     # print current fitness of the most likely parameter setting
     if i % 20 == 0:
-    print('iter %d. w: %s, solution: %s, reward: %f' %
+        print('iter %d. w: %s, solution: %s, reward: %f' %
           (i, str(w), str(solution), f(w)))
 
     # initialize memory for a population of w's, and their rewards
