@@ -13,12 +13,13 @@ class Predictor(object):
     def __init__(self, obs_dim, act_dim):
 
         self.lr = 1e-3
+        self.keep_prob = 0.7
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self._build_graph()
         self._init_session()
 
-        self.save_path = "agents/ppo/predictor"
+        self.save_path = "agents/predictor"
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
 
@@ -33,13 +34,18 @@ class Predictor(object):
             self.n_obs_ph = tf.placeholder(tf.float32, (None, self.obs_dim), 'n_obs')
 
             self.l1 = tfl.fully_connected(tf.concat([self.obs_ph, self.act_ph], 1), 300, 'relu', weights_init='xavier')
+            self.l1 = tfl.dropout(self.l1, keep_prob=self.keep_prob)
 
             self.l1_act = tfl.fully_connected(self.l1, 240, 'tanh', weights_init='xavier')
+            self.l1_act = tfl.dropout(self.l1_act, keep_prob=self.keep_prob)
             self.l2_act = tfl.fully_connected(self.l1_act, 240, 'tanh', weights_init='xavier')
+            self.l2_act = tfl.dropout(self.l2_act, keep_prob=self.keep_prob)
             self.out_state = tfl.fully_connected(self.l2_act, self.obs_dim, 'linear', weights_init='xavier')
 
             self.l1_rew = tfl.fully_connected(self.l1, 96, 'tanh', weights_init='xavier')
+            self.l1_rew = tfl.dropout(self.l1_rew, keep_prob=self.keep_prob)
             self.l2_rew = tfl.fully_connected(self.l1_rew, 64, 'tanh', weights_init='xavier')
+            self.l2_rew = tfl.dropout(self.l2_rew, keep_prob=self.keep_prob)
             self.out_rew = tfl.fully_connected(self.l2_rew, 1, 'linear', weights_init='xavier')
 
             self.state_prediction_loss_vec = tf.square(self.out_state - self.n_obs_ph)
