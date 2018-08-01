@@ -35,11 +35,14 @@ def f(w):
         # Step environment
         env_obs, rew, done, _ = env.step([t0, t1, t2])
 
+        # TODO: Inspect oscillator, action values etc
+        # TODO: Try optimize normal mlp policy but predicting oscillator values instead of torques
+
         if animate:
             env.render()
 
         reward += rew
-        step += 0.05
+        step += 0.005
 
         prev_torques = [t0, t1, t2]
 
