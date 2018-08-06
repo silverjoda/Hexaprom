@@ -18,15 +18,17 @@ def f(w):
 
         # Oscillator 0
         o0 = list(env_obs) + prev_torques
-        a0, m0 = np.maximum(np.matmul(o0, w[0:n1].reshape((10,2))), 0)
+        a0, m0 = np.tanh(np.matmul(o0, w[0:n1].reshape((10,2))))
 
         # Oscillator 1
         o1 = list(env_obs) + prev_torques
-        a1, m1 = np.maximum(np.matmul(o1, w[n1:n1 + n2].reshape((10,2))), 0)
+        a1, m1 = np.tanh(np.matmul(o1, w[n1:n1 + n2].reshape((10,2))))
 
-
-        mult = 5
+        mult = 1
         offset = 0
+
+        #m0 = m1 = a0 = a1 = 1
+        #print(a0, m0, a1, m1)
 
         t0 = (offset + mult * a0) * np.sin(m0 * step)
         t1 = (offset + mult * a1) * np.sin(m1 * step)
@@ -41,7 +43,7 @@ def f(w):
             env.render()
 
         reward += rew
-        step += 0.005
+        step += 0.03
 
         prev_torques = [t0, t1]
 
