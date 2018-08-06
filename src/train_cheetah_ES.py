@@ -36,7 +36,7 @@ def f(w):
         o4 = list(env_obs) + prev_torques
         a4, m4 = np.tanh(np.matmul(o4, w[n4:n4 + n5].reshape((23, 2))))
 
-        # Oscillator 5
+        # Oscillator 5.
         o5 = list(env_obs) + prev_torques
         a5, m5 = np.tanh(np.matmul(o5, w[n5:n5 + n6].reshape((23, 2))))
 
