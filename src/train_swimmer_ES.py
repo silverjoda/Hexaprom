@@ -36,9 +36,6 @@ def f(w):
         # Step environment
         env_obs, rew, done, _ = env.step([t0, t1])
 
-        # TODO: Inspect oscillator, action values etc
-        # TODO: Try optimize normal mlp policy but predicting oscillator values instead of torques
-
         if animate:
             env.render()
 
@@ -50,8 +47,16 @@ def f(w):
     return -reward
 
 # Make environment
-env = gym.make("Swimmer-v2")
+env = gym.make("SwimmerLong-v0")
+print("Action space: {}, observation space: {}".format(env.action_space.shape, env.observation_space.shape))
 animate = True
+
+while(True):
+    env.step(np.random.randn(env.action_space.shape))
+    env.render()
+
+# Observations
+# x, y, th, j1, j2, dx, dy, dth, dj1, dj2
 
 # Generate weights
 n1 = (10 * 2)
@@ -60,8 +65,9 @@ n2 = (10 * 2)
 N_weights = n1 + n2
 w = np.random.randn(N_weights)
 
+# TODO: Try long linked swimmer, shared weights
 es = cma.CMAEvolutionStrategy(w, 0.5)
-es.optimize(f, iterations=1000)
+es.optimize(f, iterations=3000)
 es.result_pretty()
 
 animate = True

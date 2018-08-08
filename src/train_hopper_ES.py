@@ -60,7 +60,10 @@ n2 = (14 * 2)
 n3 = (14 * 2)
 
 N_weights = n1 + n2 + n3
-w = np.random.randn(N_weights)
+W_MULT = 0.05
+w = np.random.randn(N_weights) * W_MULT
+
+# TODO: Add PID controller
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
 es.optimize(f, iterations=1000)
