@@ -15,7 +15,7 @@ def f(w):
 
         # Make actions:
 
-        mult = 3
+        mult = 2
 
         # Oscillator 0
         o0 = list(env_obs) + prev_torques
@@ -41,8 +41,8 @@ def f(w):
     return -reward
 
 # Make environment
-env = gym.make("Hopper-v2")
-animate = False
+env = gym.make("Ant-v3")
+animate = True
 
 # Generate weights
 n1 = (14 * 1)
@@ -50,7 +50,7 @@ n2 = (14 * 1)
 n3 = (14 * 1)
 
 N_weights = n1 + n2 + n3
-W_MULT = 0.3
+W_MULT = 1
 w = np.random.randn(N_weights) * W_MULT
 
 es = cma.CMAEvolutionStrategy(w, 0.5)

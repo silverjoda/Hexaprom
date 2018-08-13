@@ -82,42 +82,31 @@ def f(w):
 
         # Make actions:
 
+        mult = 1
+
         # Oscillator 0
         o0 = list(env_obs[[0, 1, 2, 5, 8, 9, 11, 14]]) + list(np.array(prev_torques)[[0,1,2,3]])
-        a0, m0 = np.tanh(np.matmul(o0, w[0:n1].reshape((12, 2))))
+        t0 = mult * np.tanh(np.matmul(o0, w[0:n1].reshape((12, 1))))
 
         # Oscillator 1
         o1 = list(env_obs[[0, 1, 2, 5, 8, 9, 11, 14]]) + list(np.array(prev_torques)[[0,1,2,3]])
-        a1, m1 = np.tanh(np.matmul(o1, w[n1:n1 + n2].reshape((12, 2))))
+        t1 = mult * np.tanh(np.matmul(o1, w[n1:n1 + n2].reshape((12, 1))))
 
         # Oscillator 2
         o2 = list(env_obs[[2,3,4,11,12,13]]) + list(np.array(prev_torques)[[0,2,4]])
-        a2, m2 = np.tanh(np.matmul(o2, w[n2:n2 + n3].reshape((9, 2))))
+        t2 = mult * np.tanh(np.matmul(o2, w[n2:n2 + n3].reshape((9, 1))))
 
         # Oscillator 3
         o3 = list(env_obs[[5,6,7,14,15,16]]) + list(np.array(prev_torques)[[1,3,5]])
-        a3, m3 = np.tanh(np.matmul(o3, w[n3:n3 + n4].reshape((9, 2))))
+        t3 = mult * np.tanh(np.matmul(o3, w[n3:n3 + n4].reshape((9, 1))))
 
         # Oscillator 4
         o4 = list(env_obs[[3,4,15,16]]) + list(np.array(prev_torques)[[2,4]])
-        a4, m4 = np.tanh(np.matmul(o4, w[n4:n4 + n5].reshape((6, 2))))
+        t4 = mult * np.tanh(np.matmul(o4, w[n4:n4 + n5].reshape((6, 1))))
 
         # Oscillator 5.
         o5 = list(env_obs[[6,7,15,16]]) + list(np.array(prev_torques)[[3,5]])
-        a5, m5 = np.tanh(np.matmul(o5, w[n5:n5 + n6].reshape((6, 2))))
-
-        mult = 1
-        offset = 0
-
-        #print([m0, m1, m2, m3, m4, m5])
-
-
-        t0 = (offset + mult * a0) * np.sin(m0 * step)
-        t1 = (offset + mult * a1) * np.sin(m1 * step)
-        t2 = (offset + mult * a2) * np.sin(m2 * step)
-        t3 = (offset + mult * a3) * np.sin(m3 * step)
-        t4 = (offset + mult * a4) * np.sin(m4 * step)
-        t5 = (offset + mult * a5) * np.sin(m5 * step)
+        t5 = mult * np.tanh(np.matmul(o5, w[n5:n5 + n6].reshape((6, 1))))
 
         # Step environment
         env_obs, rew, done, _ = env.step([t0, t2, t4, t1, t3, t5])
@@ -128,42 +117,32 @@ def f(w):
         reward += rew
         step += 0.01
 
-        # TODO: Try to add PD controller
-
         prev_torques = [t0, t1, t2, t3, t4, t5]
 
     return -reward
 
 # Make environment
 env = gym.make("HalfCheetah-v2")
-animate = True
+animate = False
 
 # # Generate weights
-# n1 = (12 * 2 + 0)
-# n2 = (12 * 2)
-# n3 = (9 * 2)
-# n4 = (9 * 2)
-# n5 = (6 * 2)
-# n6 = (6 * 2)
-
-# Generate weights
-n1 = (23 * 2)
-n2 = (23 * 2)
-n3 = (23 * 2)
-n4 = (23 * 2)
-n5 = (23 * 2)
-n6 = (23 * 2)
+n1 = (12 * 1)
+n2 = (12 * 1)
+n3 = (9 * 1)
+n4 = (9 * 1)
+n5 = (6 * 1)
+n6 = (6 * 1)
 
 N_weights = n1 + n2 + n3 + n4 + n5 + n6
 
 # TODO: Try again full obvservation policy but with correct weight scaling and maybe PID
-W_MULT = 0.05
+W_MULT = 0.3
 w = np.random.randn(N_weights) * W_MULT
 
 print("N_weights: {}".format(N_weights))
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
-es.optimize(ff, iterations=10000)
+es.optimize(f, iterations=10000)
 es.result_pretty()
 
 print(es.result.xbest, file=open("halfcheetah_weights.txt", "a"))
