@@ -30,9 +30,16 @@ def f(w):
 
         mult = 1
 
-        t0 = (mult * 1) * np.sin(m0 * step + a0)
-        t1 = (mult * 1) * np.sin(m1 * step + a1)
-        t2 = (mult * 1) * np.sin(m2 * step + a2)
+        r0 = (mult * a0) * np.sin(m0 * step)
+        r1 = (mult * a1) * np.sin(m1 * step)
+        r2 = (mult * a2) * np.sin(m2 * step)
+
+        j0,j1,j2 = env_obs[[2,3,4]]
+
+        kp = 3
+        t0 = kp * (r0 - j0)
+        t1 = kp * (r1 - j1)
+        t2 = kp * (r2 - j2)
 
         # Step environment
         env_obs, rew, done, _ = env.step([t0, t1, t2])
@@ -44,9 +51,9 @@ def f(w):
             env.render()
 
         reward += rew
-        step += 0.005
+        step += 0.01
 
-        prev_torques = [t0, t1, t2]
+        prev_torques = [r0, r1, r2]
 
     return -reward
 
@@ -63,16 +70,12 @@ N_weights = n1 + n2 + n3
 W_MULT = 0.05
 w = np.random.randn(N_weights) * W_MULT
 
-# TODO: Add PID controller
-
 es = cma.CMAEvolutionStrategy(w, 0.5)
-es.optimize(f, iterations=1000)
+try:
+    es.optimize(f, iterations=2000)
+except KeyboardInterrupt:
+    print("User interrupted process.")
 es.result_pretty()
 
-animate = True
-for i in range(10):
-    f(es.result.xbest)
 
-print("Best value: {}".format(es.result.fbest))
-
-
+print(es.result.xbest, file=open("hopper_weights.txt", "a"))

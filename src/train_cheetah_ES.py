@@ -138,28 +138,33 @@ def f(w):
 env = gym.make("HalfCheetah-v2")
 animate = True
 
+# # Generate weights
+# n1 = (12 * 2 + 0)
+# n2 = (12 * 2)
+# n3 = (9 * 2)
+# n4 = (9 * 2)
+# n5 = (6 * 2)
+# n6 = (6 * 2)
+
 # Generate weights
-n1 = (12 * 2 + 0)
-n2 = (12 * 2)
-n3 = (9 * 2)
-n4 = (9 * 2)
-n5 = (6 * 2)
-n6 = (6 * 2)
+n1 = (23 * 2)
+n2 = (23 * 2)
+n3 = (23 * 2)
+n4 = (23 * 2)
+n5 = (23 * 2)
+n6 = (23 * 2)
 
 N_weights = n1 + n2 + n3 + n4 + n5 + n6
 
-# TODO: Try again full ovservation policy but with correct weight scaling and maybe PID
+# TODO: Try again full obvservation policy but with correct weight scaling and maybe PID
 W_MULT = 0.05
 w = np.random.randn(N_weights) * W_MULT
 
 print("N_weights: {}".format(N_weights))
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
-es.optimize(f, iterations=10000)
+es.optimize(ff, iterations=10000)
 es.result_pretty()
 
-animate = True
-for i in range(10):
-    f(es.result.xbest)
+print(es.result.xbest, file=open("halfcheetah_weights.txt", "a"))
 
-print("Best value: {}".format(es.result.fbest))
