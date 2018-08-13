@@ -3,7 +3,7 @@ import gym
 import cma
 np.random.seed(0)
 
-#EXP: no oscillator, just torque prediction + Trying minimal observations
+#EXP: no oscillator, just torque prediction + minimal observation
 
 # the function we want to optimize
 def f(w):
@@ -25,34 +25,34 @@ def f(w):
         mult = 1.5
 
         # (neck)
-        o0 = list(env_obs[[0,1,8,9,10,11]]) + prev_torques[0:2]
-        t0 = mult * np.tanh(np.matmul(o0, w[0:n1].reshape((8,1))))
+        o0 = list(env_obs[[0,1,8]]) + prev_torques[0:2]
+        t0 = mult * np.tanh(np.matmul(o0, w[0:n1].reshape((5,1))))
 
         # -------------
 
         # Oscillator 1
-        o1 = list(env_obs[[1, 2, 3, 11, 12, 13]]) + prev_torques[0:3]
-        t1 = mult * np.tanh(np.matmul(o1, w[n1:n1 + n2].reshape((9, 1))))
+        o1 = list(env_obs[[1, 2, 3]]) + prev_torques[0:3]
+        t1 = mult * np.tanh(np.matmul(o1, w[n1:n1 + n2].reshape((6, 1))))
 
         # Oscillator 2
-        o2 = list(env_obs[[2, 3, 4, 12, 13, 14]]) + prev_torques[1:4]
-        t2 = mult * np.tanh(np.matmul(o2, w[n1:n1 + n2].reshape((9, 1))))
+        o2 = list(env_obs[[2, 3, 4]]) + prev_torques[1:4]
+        t2 = mult * np.tanh(np.matmul(o2, w[n1:n1 + n2].reshape((6, 1))))
 
         # Oscillator 3
-        o3 = list(env_obs[[3, 4, 5, 13, 14, 15]]) + prev_torques[2:5]
-        t3 = mult * np.tanh(np.matmul(o3, w[n1:n1 + n2].reshape((9, 1))))
+        o3 = list(env_obs[[3, 4, 5]]) + prev_torques[2:5]
+        t3 = mult * np.tanh(np.matmul(o3, w[n1:n1 + n2].reshape((6, 1))))
 
         # Oscillator 4
-        o4 = list(env_obs[[4, 5, 6, 13, 14, 15]]) + prev_torques[2:5]
-        t4 = mult * np.tanh(np.matmul(o4, w[n1:n1 + n2].reshape((9, 1))))
+        o4 = list(env_obs[[4, 5, 6]]) + prev_torques[2:5]
+        t4 = mult * np.tanh(np.matmul(o4, w[n1:n1 + n2].reshape((6, 1))))
 
         # Oscillator 5
-        o5 = list(env_obs[[5, 6, 7, 14, 15, 16]]) + prev_torques[3:6]
-        t5 = mult * np.tanh(np.matmul(o5, w[n1:n1 + n2].reshape((9, 1))))
+        o5 = list(env_obs[[5, 6, 7]]) + prev_torques[3:6]
+        t5 = mult * np.tanh(np.matmul(o5, w[n1:n1 + n2].reshape((6, 1))))
 
         # Oscillator 6
-        o6 = list(env_obs[[6, 7]]) + [0] + list(env_obs[[15, 16]]) + [0] + prev_torques[4:6] + [0]
-        t6 = mult * np.tanh(np.matmul(o6, w[n1:n1 + n2].reshape((9, 1))))
+        o6 = list(env_obs[[6, 7]]) + [0] + prev_torques[4:6] + [0]
+        t6 = mult * np.tanh(np.matmul(o6, w[n1:n1 + n2].reshape((6, 1))))
 
         # Step environment
         env_obs, rew, done, _ = env.step([t0, t1, t2, t3, t4, t5, t6])
@@ -73,8 +73,8 @@ print("Action space: {}, observation space: {}".format(env.action_space.shape, e
 animate = True
 
 # Generate weights
-n1 = (8 * 1)
-n2 = (9 * 1)
+n1 = (5 * 1)
+n2 = (6 * 1)
 N_weights = n1 + n2
 w = np.random.randn(N_weights)  
 
