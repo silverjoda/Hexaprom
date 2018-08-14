@@ -72,7 +72,7 @@ print("N_weights: {}, mult {}, n_mult {}, ES_ESD {}".format(N_weights, mult, W_M
 
 es = cma.CMAEvolutionStrategy(w, ES_STD)
 try:
-    es.optimize(f, iterations=10000)
+    es.optimize(f, iterations=20000)
 except KeyboardInterrupt:
     print("User interrupted process.")
 es.result_pretty()

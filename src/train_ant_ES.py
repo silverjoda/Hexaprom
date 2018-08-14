@@ -19,37 +19,39 @@ def f(w):
 
         # Make actions:
 
+        # TODO: CLone experiment and add control heirarchy (first policy controls femurs, femurs control coxas)
+
         # l0f
         o0 = list(env_obs[[0, 1, 2, 3, 4,   5, 7, 9, 11,   6, 19, 20]]) + prev_torques[0:2]
-        t0 = mult * np.tanh(np.matmul(o0, w[0:n1].reshape((14, 1))))
+        t0 = mult * np.tanh(np.matmul(o0, w[n1:n1 + n2_0].reshape((14, 1))))
 
         # l1f
         o2 = list(env_obs[[0, 1, 2, 3, 4,   5, 7, 9, 11,   8, 21, 22]]) + prev_torques[2:4]
-        t2 = mult * np.tanh(np.matmul(o2, w[0:n1].reshape((14, 1))))
+        t2 = mult * np.tanh(np.matmul(o2, w[n1 + n2_0:n1 + n2_0 + n2_1].reshape((14, 1))))
 
         # l2f
         o4 = list(env_obs[[0, 1, 2, 3, 4,   5, 7, 9, 11,   10, 23, 24]]) + prev_torques[4:6]
-        t4 = mult * np.tanh(np.matmul(o4, w[0:n1].reshape((14, 1))))
+        t4 = mult * np.tanh(np.matmul(o4, w[n1 + n2_0 + n2_1:n1 + n2_0 + n2_1 + n2_2].reshape((14, 1))))
 
         # l3f
         o6 = list(env_obs[[0, 1, 2, 3, 4,   5, 7, 9, 11,   12, 25, 26]]) + prev_torques[6:8]
-        t6 = mult * np.tanh(np.matmul(o6, w[0:n1].reshape((14, 1))))
+        t6 = mult * np.tanh(np.matmul(o6, w[n1 + n2_0 + n2_1 + n2_2:].reshape((14, 1))))
 
         # l0c
         o1 = list(env_obs[[5, 6]]) + prev_torques[0:2]
-        t1 = mult * np.tanh(np.matmul(o1, w[n1:n1+n2].reshape((4, 1))))
+        t1 = mult * np.tanh(np.matmul(o1, w[:n1].reshape((4, 1))))
 
         # l1c
         o3 = list(env_obs[[7, 8]]) + prev_torques[2:4]
-        t3 = mult * np.tanh(np.matmul(o3, w[n1:n1 + n2].reshape((4, 1))))
+        t3 = mult * np.tanh(np.matmul(o3, w[:n1].reshape((4, 1))))
 
         # l2c
         o5 = list(env_obs[[9, 10]]) + prev_torques[4:6]
-        t5 = mult * np.tanh(np.matmul(o5, w[n1:n1 + n2].reshape((4, 1))))
+        t5 = mult * np.tanh(np.matmul(o5, w[:n1].reshape((4, 1))))
 
         # l3c
         o7 = list(env_obs[[11, 12]]) + prev_torques[6:8]
-        t7 = mult * np.tanh(np.matmul(o7, w[n1:n1 + n2].reshape((4, 1))))
+        t7 = mult * np.tanh(np.matmul(o7, w[:n1].reshape((4, 1))))
 
         # Step environment
         env_obs, rew, done, _ = env.step([t0, t1, t2, t3, t4, t5, t6, t7])
@@ -67,9 +69,13 @@ env = gym.make("Ant-v3")
 animate = False
 
 # Generate weights
-n1 = (14 * 1)
-n2 = (4 * 1)
+n1 = (4 * 1)
+n2_0 = (14 * 1)
+n2_1 = (14 * 1)
+n2_2 = (14 * 1)
+n2_3 = (14 * 1)
 
+n2 = n2_0 + n2_1 + n2_2 + n2_3
 N_weights = n1 + n2
 W_MULT = 0.5
 mult = 1
@@ -77,7 +83,7 @@ w = np.random.randn(N_weights) * W_MULT
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
 try:
-    es.optimize(f, iterations=10000)
+    es.optimize(f, iterations=20000)
 except KeyboardInterrupt:
     print("User interrupted process.")
 es.result_pretty()
