@@ -1,6 +1,7 @@
 import numpy as np
 import gym
 import cma
+import time
 np.random.seed(0)
 
 def ff(w):
@@ -74,35 +75,39 @@ def f(w):
     env_obs = env.reset()
     prev_torques = [0,0,0,0,0,0]
 
+    # TODO: FInd out which leg is which
+
     while not done:
 
         # Env obs:
         # 0,  1,    2,    3,    4,    5,    6,    7    8,  9,  10,    11,    12,    13,    14,    15,    16
         # z, th, ll_0, ll_1, ll_2, rl_0, rl_1, rl_2 - dx, dz, dth, dll_0, dll_1, dll_2, drl_0, drl_1, drl_2
 
-        # Oscillator 0
-        o0 = list(env_obs[[0, 1, 2, 5, 8, 9, 11, 14]]) + list(np.array(prev_torques)[[0,1,2,3]])
-        t0 = mult * np.tanh(np.matmul(o0, w[0:n1].reshape((12, 1))))
+        # Torques: ll_0, ll_1, ll_2, rl_0, rl_1, rl_2
 
-        # Oscillator 1
-        o1 = list(env_obs[[0, 1, 2, 5, 8, 9, 11, 14]]) + list(np.array(prev_torques)[[0,1,2,3]])
-        t1 = mult * np.tanh(np.matmul(o1, w[n1:n1 + n2].reshape((12, 1))))
+        # l0
+        o0 = list(env_obs[[0,1,9,10,2,3,5,11,12,14]]) + list(np.array(prev_torques)[[0,1,3]])
+        t0 = mult * np.tanh(np.matmul(o0, w[0:n1].reshape((13, 1))))
 
-        # Oscillator 2
-        o2 = list(env_obs[[2,3,4,11,12,13]]) + list(np.array(prev_torques)[[0,2,4]])
-        t2 = mult * np.tanh(np.matmul(o2, w[n2:n2 + n3].reshape((9, 1))))
+        # r0
+        o1 = list(env_obs[[0,1,9,10,2,5,6,11,14,15]]) + list(np.array(prev_torques)[[0,3,4]])
+        t1 = mult * np.tanh(np.matmul(o1, w[n1:n1 + n2].reshape((13, 1))))
 
-        # Oscillator 3
-        o3 = list(env_obs[[5,6,7,14,15,16]]) + list(np.array(prev_torques)[[1,3,5]])
-        t3 = mult * np.tanh(np.matmul(o3, w[n3:n3 + n4].reshape((9, 1))))
+        # l1
+        o2 = list(env_obs[[2,3,4,6,10,11,13,15]]) + list(np.array(prev_torques)[[0,1,2,4]])
+        t2 = mult * np.tanh(np.matmul(o2, w[n2:n2 + n3].reshape((12, 1))))
 
-        # Oscillator 4
-        o4 = list(env_obs[[3,4,15,16]]) + list(np.array(prev_torques)[[2,4]])
-        t4 = mult * np.tanh(np.matmul(o4, w[n4:n4 + n5].reshape((6, 1))))
+        # r1
+        o3 = list(env_obs[[5,6,7,3,14,15,16,12]]) + list(np.array(prev_torques)[[3,4,5,1]])
+        t3 = mult * np.tanh(np.matmul(o3, w[n3:n3 + n4].reshape((12, 1))))
 
-        # Oscillator 5.
-        o5 = list(env_obs[[6,7,15,16]]) + list(np.array(prev_torques)[[3,5]])
-        t5 = mult * np.tanh(np.matmul(o5, w[n5:n5 + n6].reshape((6, 1))))
+        # l2
+        o4 = list(env_obs[[3,4,7,12,13,16]]) + list(np.array(prev_torques)[[1,2,5]])
+        t4 = mult * np.tanh(np.matmul(o4, w[n4:n4 + n5].reshape((9, 1))))
+
+        # r2
+        o5 = list(env_obs[[6,7,4,15,16,13]]) + list(np.array(prev_torques)[[4,5,2]])
+        t5 = mult * np.tanh(np.matmul(o5, w[n5:n5 + n6].reshape((9, 1))))
 
         # Step environment
         env_obs, rew, done, _ = env.step([t0, t2, t4, t1, t3, t5])
@@ -121,13 +126,14 @@ def f(w):
 env = gym.make("HalfCheetah-v2")
 animate = False
 
+
 # # Generate weights
-n1 = (12 * 1)
-n2 = (12 * 1)
-n3 = (9 * 1)
-n4 = (9 * 1)
-n5 = (6 * 1)
-n6 = (6 * 1)
+n1 = (13 * 1)
+n2 = (13 * 1)
+n3 = (12 * 1)
+n4 = (12 * 1)
+n5 = (9 * 1)
+n6 = (9 * 1)
 
 N_weights = n1 + n2 + n3 + n4 + n5 + n6
 

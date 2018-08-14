@@ -14,7 +14,6 @@ def f(w):
     while not done:
 
         # Make actions:
-
         mult = 2
 
         # Oscillator 0
