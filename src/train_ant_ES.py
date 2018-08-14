@@ -71,7 +71,7 @@ n1 = (14 * 1)
 n2 = (4 * 1)
 
 N_weights = n1 + n2
-W_MULT = 0.1
+W_MULT = 0.5
 mult = 1
 w = np.random.randn(N_weights) * W_MULT
 
