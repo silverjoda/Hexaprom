@@ -80,10 +80,6 @@ def f(w):
         # 0,  1,    2,    3,    4,    5,    6,    7    8,  9,  10,    11,    12,    13,    14,    15,    16
         # z, th, ll_0, ll_1, ll_2, rl_0, rl_1, rl_2 - dx, dz, dth, dll_0, dll_1, dll_2, drl_0, drl_1, drl_2
 
-        # Make actions:
-
-        mult = 1
-
         # Oscillator 0
         o0 = list(env_obs[[0, 1, 2, 5, 8, 9, 11, 14]]) + list(np.array(prev_torques)[[0,1,2,3]])
         t0 = mult * np.tanh(np.matmul(o0, w[0:n1].reshape((12, 1))))
@@ -136,10 +132,11 @@ n6 = (6 * 1)
 N_weights = n1 + n2 + n3 + n4 + n5 + n6
 
 # TODO: Try again full obvservation policy but with correct weight scaling and maybe PID
-W_MULT = 0.3
+mult = 1
+W_MULT = 0.5
 w = np.random.randn(N_weights) * W_MULT
 
-print("N_weights: {}".format(N_weights))
+print("N_weights: {}, mult {}, n_mult {}".format(N_weights, mult, W_MULT))
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
 es.optimize(f, iterations=10000)
