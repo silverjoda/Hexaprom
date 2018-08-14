@@ -3,7 +3,7 @@ import gym
 import cma
 np.random.seed(0)
 
-# EXP: double layer NN
+# EXP: double layer NN, sparser observations (less parameters)
 
 # the function we want to optimize
 def f(w):
@@ -15,8 +15,11 @@ def f(w):
 
     while not done:
 
+        # Observations:
+        # z, th, j1, j2, j3, dx, dz, dth, dj1, dj2, dj3
+
         # Oscillator 0
-        o0 = list(env_obs) + prev_torques
+        o0 = list(env_obs[]) + prev_torques
         t0 = np.tanh(np.matmul(o0, w[0:n1_a].reshape((14, 3))))
         t0 = mult * np.tanh(np.matmul(t0, w[n1_a:n1].reshape((3, 1))))
 
