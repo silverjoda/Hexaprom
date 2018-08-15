@@ -75,7 +75,6 @@ def f(w):
     env_obs = env.reset()
     prev_torques = [0,0,0,0,0,0]
 
-    # TODO: FInd out which leg is which
 
     while not done:
 
