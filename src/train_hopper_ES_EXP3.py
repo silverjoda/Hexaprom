@@ -1,9 +1,12 @@
 import numpy as np
 import gym
 import cma
+from pid import PDreg
 np.random.seed(0)
 
+
 # EXP: double layer NN, sparser observations (less parameters), heirarchical control
+
 
 # the function we want to optimize
 def f(w):
@@ -12,6 +15,8 @@ def f(w):
     done = False
     env_obs = env.reset()
     prev_torques = [0,0,0]
+
+    pdreg = PDreg(1.5, 0.005)
 
     while not done:
 
@@ -34,8 +39,10 @@ def f(w):
         t2 = np.tanh(np.matmul(o2, w[n1 + n2:n1 + n2 + n3_a].reshape((6, 2))))
         t2 = mult * np.tanh(np.matmul(t2, w[n1 + n2 + n3_a:n1 + n2 + n3].reshape((2, 1))))
 
+        a0, a1, a2 = pdreg.update(env_obs[[2,3,4]],[t0,t1,t2])
+
         # Step environment
-        env_obs, rew, done, _ = env.step([t0, t1, t2])
+        env_obs, rew, done, _ = env.step([a0, a1, a2])
 
         if animate:
             env.render()

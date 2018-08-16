@@ -1,18 +1,28 @@
 import numpy as np
 import gym
 import cma
+from pid import PDreg
 np.random.seed(0)
 
 # EXP:  CLone experiment and add control heirarchy (first policy controls femurs, femurs control coxas)
 
 def f(w):
 
-    w0 = w[n1:n1 + 4].reshape(n2_s)
+    w0 = w[0:n1_s[0]].reshape(n1_s)
+    w1 = w[n1_s[0]:2*n1_s[0]].reshape(n1_s)
+
+    w2 = w[n1:n1 + n2_s[0]].reshape(n2_s)
+    w3 = w[n1 + n2_s[0]:n1 + n2].reshape(n2_s)
+
+    w4 = w[n1 + n2:n1 + n2 + n3_s[0]].reshape(n3_s)
+    w5 = w[n1 + n2 + n3_s[0]:n1 + n2 + n3].reshape(n3_s)
 
     reward = 0
     done = False
     env_obs = env.reset()
     prev_torques = 6 * [0]
+
+    pdreg = PDreg(1.5, 0.005)
 
     # Observations
     # 0,  1,   2,   3,   4,   5,   6,   7,  8,  9,  10,   11,   12,   13,   14,   15,   16
@@ -25,50 +35,52 @@ def f(w):
         t0 = mult * np.tanh(np.matmul(o0, w0))
 
         # lj1
-        o1 = list(env_obs[[0, 1, 5, 2, 9, 8, 14]]) + list(np.array(prev_torques)[[3, 0]])
-        t1 = mult * np.tanh(np.matmul(o1, w1))
+        o1 = list(env_obs[[2, 3, 4, 12]]) + list(np.array(prev_torques)[[1, 4]]) + [t0]
+        t1 = mult * np.tanh(np.matmul(o1, w2))
 
         # lj2
-        o2 = list(env_obs[[2, 3, 4, 12]]) + list(np.array(prev_torques)[[1, 4]]) + [t0, t1]
-        t2 = mult * np.tanh(np.matmul(o2, w2))
+        o2 = list(env_obs[[2, 3, 4, 13]]) + list(np.array(prev_torques)[[2]]) + [t0, t1]
+        t2 = mult * np.tanh(np.matmul(o2, w4))
 
-        # lj3
-        o3 = list(env_obs[[5, 6, 7, 15]]) + list(np.array(prev_torques)[[4, 1]]) + [t1, t0]
-        t3 = mult * np.tanh(np.matmul(o3, w3))
+        # rj0
+        o3 = list(env_obs[[0, 1, 5, 2, 9, 8, 14]]) + list(np.array(prev_torques)[[3, 0]])
+        t3 = mult * np.tanh(np.matmul(o3, w1))
 
-        # lj1
-        o4 = list(env_obs[[3, 4, 13]]) + list(np.array(prev_torques)[[2]]) + [t2]
-        t4 = mult * np.tanh(np.matmul(o4, w4))
+        # rj1
+        o4 = list(env_obs[[5, 6, 7, 15]]) + list(np.array(prev_torques)[[4, 1]]) + [t3]
+        t4 = mult * np.tanh(np.matmul(o4, w3))
 
-        # lj1
-        o5 = list(env_obs[[5, 6, 16]]) + list(np.array(prev_torques)[[5]]) + [t3]
+        # rj2
+        o5 = list(env_obs[[5, 6, 7, 16]]) + list(np.array(prev_torques)[[5]]) + [t3, t4]
         t5 = mult * np.tanh(np.matmul(o5, w5))
 
-        action = [t0, t1, t2, t3, t4, t5]
+        action = [t0[0], t1[0], t2[0], t3[0], t4[0], t5[0]]
+
+        a0, a1, a2, a3, a4, a5 = pdreg.update(env_obs[[2, 3, 4, 5, 6, 7]], action)
 
         # Step environment
-        env_obs, rew, done, _ = env.step(action)
+        env_obs, rew, done, _ = env.step([a0, a1, a2, a3, a4, a5])
 
         if animate:
             env.render()
 
         reward += rew
-        prev_torques = [t0, t1, t2, t3, t4, t5]
+        prev_torques = action
 
     return -reward
 
 # Make environment
-env = gym.make("Ant-v3")
-animate = True
+env = gym.make("Walker2d-v2")
+animate = False
 
 # Generate weights
-n1_s = (14, 8)
-n2_s = (4, 1)
-n3_s = (3, 1)
+n1_s = (9, 1)
+n2_s = (7, 1)
+n3_s = (7, 1)
 
-n1 = n1_s[0] * n1_s[1]
-n2 = 4 * n2_s[0] * n2_s[1]
-n3 = n3_s[0] * n3_s[1]
+n1 = 2 * n1_s[0] * n1_s[1]
+n2 = 2 * n2_s[0] * n2_s[1]
+n3 = 2 * n3_s[0] * n3_s[1]
 
 N_weights = n1 + n2 + n3
 W_MULT = 1
@@ -83,4 +95,4 @@ except KeyboardInterrupt:
 es.result_pretty()
 
 
-print(es.result.xbest, file=open("hopper_weights.txt", "a"))
+print(es.result.xbest, file=open("walker_weights.txt", "a"))
