@@ -7,64 +7,53 @@ np.random.seed(0)
 
 def f(w):
 
+    w0 = w[n1:n1 + 4].reshape(n2_s)
+
     reward = 0
     done = False
     env_obs = env.reset()
-    prev_torques = 8 * [0]
+    prev_torques = 6 * [0]
 
     # Observations
-    # 0,  1,  2,  3,  4,   5,   6,   7,   8,   9,  10,  11,  12, 13, 14, 15,  16,     17,   18,    19,   20,   21,   22,   23,   24,   25,   26
-    # z, q1, q2, q3, q4, l0f, l0c, l1f, l1c, l2f, l2c, l3f, l3c, dx, dy, dz,  dthx, dthy, dthz,  dl0f, dl0c, dl1f, dl1c, dl2f, dl2c, dl3f, dl3c
+    # 0,  1,   2,   3,   4,   5,   6,   7,  8,  9,  10,   11,   12,   13,   14,   15,   16
+    # z, th, lj0, lj1, lj2, rj0, rj1, rj2, dx, dz, dth, dlj0, dlj1, dlj2, drj0, drj1, drj2
 
     while not done:
 
-        # cpol
-        ocpol = list(env_obs[[0, 1, 2, 3, 5, 7, 9, 11, 13, 14, 15, 16, 17, 18]])
-        pcpol = np.tanh(np.matmul(ocpol, w[:n1].reshape(n1_s)))
+        # lj0
+        o0 = list(env_obs[[0, 1, 2, 5, 8, 9, 11]]) + list(np.array(prev_torques)[[0, 3]])
+        t0 = mult * np.tanh(np.matmul(o0, w0))
 
-        # l0f
-        o0 = list(pcpol[0:2]) + list(env_obs[[5, 6]]) #+ prev_torques[0:2]
-        t0 = mult * np.tanh(np.matmul(o0, w[n1:n1 + 4].reshape(n2_s)))
+        # lj1
+        o1 = list(env_obs[[0, 1, 5, 2, 9, 8, 14]]) + list(np.array(prev_torques)[[3, 0]])
+        t1 = mult * np.tanh(np.matmul(o1, w1))
 
-        # l1f
-        o2 = list(pcpol[2:4]) + list(env_obs[[7, 8]]) #+ prev_torques[2:4]
-        t2 = mult * np.tanh(np.matmul(o2, w[n1 + 4:n1 + 8].reshape(n2_s)))
+        # lj2
+        o2 = list(env_obs[[2, 3, 4, 12]]) + list(np.array(prev_torques)[[1, 4]]) + [t0, t1]
+        t2 = mult * np.tanh(np.matmul(o2, w2))
 
-        # l2f
-        o4 = list(pcpol[4:6]) + list(env_obs[[9, 10]]) #+ prev_torques[4:6]
-        t4 = mult * np.tanh(np.matmul(o4, w[n1 + 8:n1 + 12].reshape(n2_s)))
+        # lj3
+        o3 = list(env_obs[[5, 6, 7, 15]]) + list(np.array(prev_torques)[[4, 1]]) + [t1, t0]
+        t3 = mult * np.tanh(np.matmul(o3, w3))
 
-        # l3f
-        o6 = list(pcpol[6:8]) + list(env_obs[[11, 12]]) #+ prev_torques[6:8]
-        t6 = mult * np.tanh(np.matmul(o6, w[n1 + 12:n1 + 16].reshape(n2_s)))
+        # lj1
+        o4 = list(env_obs[[3, 4, 13]]) + list(np.array(prev_torques)[[2]]) + [t2]
+        t4 = mult * np.tanh(np.matmul(o4, w4))
 
-        # l0c
-        o1 = list(env_obs[[5, 6]]) + [t0]  #+ prev_torques[1:2]
-        t1 = mult * np.tanh(np.matmul(o1, w[n1 + n2:].reshape(n3_s)))
+        # lj1
+        o5 = list(env_obs[[5, 6, 16]]) + list(np.array(prev_torques)[[5]]) + [t3]
+        t5 = mult * np.tanh(np.matmul(o5, w5))
 
-        # l1c
-        o3 = list(env_obs[[7, 8]]) + [t2] #+ prev_torques[3:4]
-        t3 = mult * np.tanh(np.matmul(o3, w[n1 + n2:].reshape(n3_s)))
-
-        # l2c
-        o5 = list(env_obs[[9, 10]]) + [t4] #+ prev_torques[5:6]
-        t5 = mult * np.tanh(np.matmul(o5, w[n1 + n2:].reshape(n3_s)))
-
-        # l3c
-        o7 = list(env_obs[[11, 12]]) + [t6] #+ prev_torques[7:8]
-        t7 = mult * np.tanh(np.matmul(o7, w[n1 + n2:].reshape(n3_s)))
-
-        action = np.array([t0, t1, t2, t3, t4, t5, t6, t7])
-        action += np.random.randn(8,1) * 0.3
+        action = [t0, t1, t2, t3, t4, t5]
 
         # Step environment
-        env_obs, rew, done, _ = env.step(action[:,0])
+        env_obs, rew, done, _ = env.step(action)
 
         if animate:
             env.render()
 
         reward += rew
-        prev_torques = [t0, t1, t2, t3, t4, t5, t6, t7]
+        prev_torques = [t0, t1, t2, t3, t4, t5]
 
     return -reward
 
