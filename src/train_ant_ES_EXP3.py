@@ -12,13 +12,13 @@ def f(w):
     reward = 0
     done = False
     env_obs = env.reset()
-    prev_torques = 6 * [0]
+    prev_torques = 8 * [0]
 
     pdreg = PDreg(1.5, 0.005)
 
     # Observations
-    # 0,  1,   2,   3,   4,   5,   6,   7,  8,  9,  10,   11,   12,   13,   14,   15,   16
-    # z, th, lj0, lj1, lj2, rj0, rj1, rj2, dx, dz, dth, dlj0, dlj1, dlj2, drj0, drj1, drj2
+    # 0,  1,  2,  3,  4,   5,   6,   7,   8,   9,  10,  11,  12, 13, 14, 15,  16,     17,   18,    19,   20,   21,   22,   23,   24,   25,   26
+    # z, q1, q2, q3, q4, l0f, l0c, l1f, l1c, l2f, l2c, l3f, l3c, dx, dy, dz,  dthx, dthy, dthz,  dl0f, dl0c, dl1f, dl1c, dl2f, dl2c, dl3f, dl3c
 
     while not done:
 
@@ -104,4 +104,4 @@ except KeyboardInterrupt:
 es.result_pretty()
 
 
-print(es.result.xbest, file=open("walker_weights.txt", "a"))
+print(es.result.xbest, file=open("ant_weights.txt", "a"))
