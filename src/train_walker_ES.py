@@ -87,6 +87,7 @@ W_MULT = 1
 mult = 1
 w = np.random.randn(N_weights) * W_MULT
 
+
 es = cma.CMAEvolutionStrategy(w, 0.5)
 try:
     es.optimize(f, iterations=20000)
