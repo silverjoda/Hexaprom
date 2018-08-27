@@ -18,8 +18,6 @@ def f(w):
 
     while not done:
 
-        # TODO: !!!! Maybe probrem is mismatch of observations and legs???? !!!!
-
         # cpol
         ocpol = list(env_obs[[0, 1, 2, 3, 5, 7, 9, 11, 13, 14, 15, 16, 17, 18]])
         pcpol = np.tanh(np.matmul(ocpol, w[:n1].reshape(n1_s)))

@@ -4,6 +4,7 @@ import cma
 from pid import PDreg
 from weight_distributor import Wdist
 np.random.seed(0)
+import time
 
 # EXP:  CLone experiment and add control heirarchy (first policy controls femurs, femurs control coxas)
 
@@ -98,10 +99,11 @@ w = np.random.randn(N_weights) * W_MULT
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
 try:
-    es.optimize(f, iterations=20000)
+    es.optimize(f, iterations=10)
 except KeyboardInterrupt:
     print("User interrupted process.")
 es.result_pretty()
+
 
 
 print(es.result.xbest, file=open("walker_weights.txt", "a"))
