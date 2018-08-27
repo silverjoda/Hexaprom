@@ -5,7 +5,7 @@ from pid import PDreg
 from weight_distributor import Wdist
 np.random.seed(0)
 from time import sleep
-# EXP: Micro policies control 1 leg each, inputs are only other leg states. NO inputs are taken from OBS
+# EXP: Micro policies control 1 leg each, inputs are only other leg states. NO inputs are taken from OBS, FULL SHARED W
 
 def ikt(j):
     pass
@@ -29,24 +29,24 @@ def f(w):
     while not done:
 
         # fl
-        obs = list(np.array(joints_ref)[[0,1, 2,3, 6,7]]) + s['fl']
-        l = np.tanh(np.matmul(obs, wdist.get_w('wfl1', w)) + wdist.get_w('bfl1', w))
-        fl_ref_a, fl_ref_b, sfl = np.matmul(l, wdist.get_w('wfl2', w)) + wdist.get_w('bfl2', w)
+        obs = list(np.array(joints_ref)[[0,1, 2,3, 6,7]]) + s['fl'] + [1]
+        l = np.tanh(np.matmul(obs, wdist.get_w('w1', w)) + wdist.get_w('b1', w))
+        fl_ref_a, fl_ref_b, sfl = np.matmul(l, wdist.get_w('w2', w)) + wdist.get_w('b2', w)
 
         # fr
-        obs = list(np.array(joints_ref)[[6,7, 4,5 ,0,1]]) + s['fr']
-        l = np.tanh(np.matmul(obs, wdist.get_w('wfr1', w)) + wdist.get_w('bfr1', w))
-        fr_ref_a, fr_ref_b, sfr = np.matmul(l, wdist.get_w('wfr2', w)) + wdist.get_w('bfr2', w)
+        obs = list(np.array(joints_ref)[[6,7, 4,5 ,0,1]]) + s['fr'] + [1]
+        l = np.tanh(np.matmul(obs, wdist.get_w('w1', w)) + wdist.get_w('b1', w))
+        fr_ref_a, fr_ref_b, sfr = np.matmul(l, wdist.get_w('w2', w)) + wdist.get_w('b2', w)
 
         # rl
-        obs = list(np.array(joints_ref)[[2,3, 0,1, 4,5]]) + s['rl']
-        l = np.tanh(np.matmul(obs, wdist.get_w('wrl1', w)) + wdist.get_w('brl1', w))
-        rl_ref_a, rl_ref_b, srl = np.matmul(l, wdist.get_w('wrl2', w)) + wdist.get_w('brl2', w)
+        obs = list(np.array(joints_ref)[[2,3, 0,1, 4,5]]) + s['rl'] + [-1]
+        l = np.tanh(np.matmul(obs, wdist.get_w('w1', w)) + wdist.get_w('b1', w))
+        rl_ref_a, rl_ref_b, srl = np.matmul(l, wdist.get_w('w2', w)) + wdist.get_w('b2', w)
 
         # rr
-        obs = list(np.array(joints_ref)[[4,5, 6,7, 2,3]]) + s['rr']
-        l = np.tanh(np.matmul(obs, wdist.get_w('wrr1', w)) + wdist.get_w('brr1', w))
-        rr_ref_a, rr_ref_b, srr = np.matmul(l, wdist.get_w('wrr2', w)) + wdist.get_w('brr2', w)
+        obs = list(np.array(joints_ref)[[4,5, 6,7, 2,3]]) + s['rr'] + [-1]
+        l = np.tanh(np.matmul(obs, wdist.get_w('w1', w)) + wdist.get_w('b1', w))
+        rr_ref_a, rr_ref_b, srr = np.matmul(l, wdist.get_w('w2', w)) + wdist.get_w('b2', w)
 
         joints_ref = [fl_ref_a, fl_ref_b, rl_ref_a, rl_ref_b, rr_ref_a, rr_ref_b, fr_ref_a, fr_ref_b]
         joints_action = pdreg.update(env_obs[5:13], joints_ref)
@@ -66,29 +66,14 @@ def f(w):
 
 # Make environment
 env = gym.make("Ant-v3")
-animate = False
+animate = True
 
 # Generate weights
 wdist = Wdist()
-wdist.addW((7, 4), 'wfl1')
-wdist.addW((4,), 'bfl1')
-wdist.addW((4, 3), 'wfl2')
-wdist.addW((3,), 'bfl2')
-
-wdist.addW((7, 4), 'wrl1')
-wdist.addW((4,), 'brl1')
-wdist.addW((4, 3), 'wrl2')
-wdist.addW((3,), 'brl2')
-
-wdist.addW((7, 4), 'wrr1')
-wdist.addW((4,), 'brr1')
-wdist.addW((4, 3), 'wrr2')
-wdist.addW((3,), 'brr2')
-
-wdist.addW((7, 4), 'wfr1')
-wdist.addW((4,), 'bfr1')
-wdist.addW((4, 3), 'wfr2')
-wdist.addW((3,), 'bfr2')
+wdist.addW((8, 5), 'w1')
+wdist.addW((5,), 'b1')
+wdist.addW((5, 3), 'w2')
+wdist.addW((3,), 'b2')
 
 N_weights = wdist.get_N()
 print("Nweights: {}".format(N_weights))
