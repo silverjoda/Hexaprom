@@ -1,15 +1,10 @@
 import numpy as np
 import gym
 import cma
-from pid import PDreg
 from weight_distributor import Wdist
-np.random.seed(0)
+#np.random.seed(0)
 from time import sleep
 
-def softmax(x):
-    """Compute softmax values for each sets of scores in x."""
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum(axis=0) # only difference
 
 def f(w):
 
@@ -22,7 +17,7 @@ def f(w):
         # fl
         obs = env_obs
         l = np.tanh(np.matmul(obs, wdist.get_w('w1', w)) + wdist.get_w('b1', w))
-        act = softmax(np.matmul(l, wdist.get_w('w2', w)) + wdist.get_w('b2', w))
+        act = np.matmul(l, wdist.get_w('w2', w)) + wdist.get_w('b2', w)
 
         # Step environment
         env_obs, rew, done, _ = env.step(np.argmax(act))
@@ -32,7 +27,6 @@ def f(w):
 
         reward += rew
 
-
     return -reward
 
 # Make environment
@@ -41,10 +35,10 @@ animate = False
 
 # Generate weights
 wdist = Wdist()
-wdist.addW((6, 12), 'w1')
-wdist.addW((12,), 'b1')
-wdist.addW((12, 3), 'w2')
-wdist.addW((3,), 'b2')
+wdist.addW((1, 3), 'w1')
+wdist.addW((3,), 'b1')
+wdist.addW((3, 2), 'w2')
+wdist.addW((2,), 'b2')
 
 N_weights = wdist.get_N()
 print("Nweights: {}".format(N_weights))
