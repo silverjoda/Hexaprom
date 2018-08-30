@@ -1,22 +1,18 @@
 import numpy as np
-import gym
-import cma
-from weight_distributor import Wdist
-#np.random.seed(0)
-from time import sleep
+import torch
 import matplotlib.pyplot as plt
+import torch.nn as nn
+import torch.nn.functional as F
 
 def f(w, plot=False):
 
-    # TODO: Double oscillator
-
     # Make frequency pattern
-    N = 140
+    N = 40
     F1 = 0.9
     F2 = 0.4
     sig = np.sin(F1 * np.arange(N)) + np.sin(F2 * np.arange(N))
     pattern = np.fft.rfft(sig)
-    real = pattern.real
+    real = np.abs(pattern.real)
     imag = pattern.imag
 
     out1, out2, state1, state2 = [0,0,0,0]
@@ -37,7 +33,7 @@ def f(w, plot=False):
         states[:, i] = [s1, s2]
 
     pred_pattern = np.fft.rfft(outputs[2,:])
-    pred_real = pred_pattern.real
+    pred_real = np.abs(pred_pattern.real)
     pred_imag = pred_pattern.imag
 
     loss = np.mean(np.square(pred_real - real)) + np.mean(np.square(pred_imag - imag))
@@ -80,31 +76,83 @@ def f(w, plot=False):
 
     return loss
 
+class Net(nn.Module):
 
-# Generate weights
-wdist = Wdist()
-wdist.addW((3, 2), 'w1')
-wdist.addW((2,), 'b1')
+    def __init__(self):
+        super(Net, self).__init__()
+        self.fc1 = nn.Linear(2, 2)
 
-wdist.addW((3, 2), 'w2')
-wdist.addW((2,), 'b2')
+    def forward(self, x):
+        # Max pooling over a (2, 2) window
+        self.fc1(x)
+        return x
+
+    def num_flat_features(self, x):
+        size = x.size()[1:]  # all dimensions except the batch dimension
+        num_features = 1
+        for s in size:
+            num_features *= s
+        return num_features
+
+def matchsignal(net, iters, N):
+
+    # Make signal
+    F1 = 0.9
+    F2 = 0.4
+    sig = np.sin(F1 * np.arange(N))
+    pattern = np.fft.rfft(sig)
+    real = np.abs(pattern.real)
+    imag = pattern.imag
+
+    # Torch objects
+    lossfun = nn.MSELoss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=0.005)
+
+    # Initial values
+    s = 0
+    out = 0
+
+    outputs = []
+    states = []
+
+    # Train iters times
+    for i in range(iters):
+
+        # Single iteration of signal generation
+        for j in range(N):
+            out, s = net(np.expand_dims([s,out], axis=0))
+            outputs.append(out)
+            states.append(s)
+
+        # Zero the gradient buffers and calculate loss
+        optimizer.zero_grad()
+        loss = lossfun(outputs, sig)
+
+        # Backprop
+        loss.backwards()
+
+        # Apply gradients
+        optimizer.step()
+
+        if iters % 10 == 0:
+            print("Iter {}/{}, loss: {}".format(i, iters, loss))
 
 
-N_weights = wdist.get_N()
-print("Nweights: {}".format(N_weights))
-W_MULT = 1
-ACT_MULT = 1
+def eval(net, N):
+    pass
 
-w = np.random.randn(N_weights) * W_MULT
-es = cma.CMAEvolutionStrategy(w, 0.8)
+# Define parameters
+N = 50
+ITERS = 1000
 
+# Make oscillator model
+osc = Net()
+
+# Train
 try:
-    es.optimize(f, iterations=3000)
+    matchsignal(osc, ITERS, N)
 except KeyboardInterrupt:
     print("User interrupted process.")
-es.result_pretty()
 
-for i in range(1):
-   f(es.result.xbest, plot=True)
-
-print('[' + ','.join(map(str, es.result.xbest)) + ']', file=open("sin_weights.txt", "a"))
+#Evaluate result
+eval(osc, N)
