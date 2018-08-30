@@ -18,14 +18,14 @@ def matchsig(siga, sigb):
 def f(w, plot=False):
 
     # Make frequency pattern
-    N = 70
-    F = 0.7
+    N = 30
+    F = 2
     sig = np.sin(F * np.arange(N))
     pattern = np.fft.rfft(sig)
     real = np.abs(pattern.real)
     imag = pattern.imag
 
-    out, state = [0,1]
+    out, state = [0,0]
 
     outputs = []
     states = []
@@ -33,8 +33,7 @@ def f(w, plot=False):
     for _ in range(N):
 
         # fl
-        l = np.tanh(np.matmul(np.array([out, state]), wdist.get_w('w1', w)) + wdist.get_w('b1', w))
-        out, state = np.matmul(l, wdist.get_w('w2', w)) + wdist.get_w('b2', w)
+        out, state = np.matmul(np.array([out, state]), wdist.get_w('w1', w)) + wdist.get_w('b1', w)
 
         # Step environment
         outputs.append(out)
@@ -45,7 +44,6 @@ def f(w, plot=False):
     pred_imag = pred_pattern.imag
 
     loss = np.mean(np.square(pred_real - real)) + np.mean(np.square(pred_imag - imag))
-    #loss = matchsig(sig, outputs)
     #loss = np.mean(np.square(np.array(outputs) - sig))
 
     if plot:
@@ -85,10 +83,8 @@ def f(w, plot=False):
 
 # Generate weights
 wdist = Wdist()
-wdist.addW((2, 3), 'w1')
-wdist.addW((3,), 'b1')
-wdist.addW((3, 2), 'w2')
-wdist.addW((2,), 'b2')
+wdist.addW((2, 2), 'w1')
+wdist.addW((2,), 'b1')
 
 N_weights = wdist.get_N()
 print("Nweights: {}".format(N_weights))
@@ -96,10 +92,10 @@ W_MULT = 1
 ACT_MULT = 1
 
 w = np.random.randn(N_weights) * W_MULT
-es = cma.CMAEvolutionStrategy(w, 0.5)
+es = cma.CMAEvolutionStrategy(w, 0.7)
 
 try:
-    es.optimize(f, iterations=1000)
+    es.optimize(f, iterations=7000)
 except KeyboardInterrupt:
     print("User interrupted process.")
 es.result_pretty()
@@ -107,4 +103,4 @@ es.result_pretty()
 for i in range(1):
    f(es.result.xbest, plot=True)
 
-print(','.join(map(str, es.result.xbest)), file=open("sin_weights.txt", "a"))
+print('[' + ','.join(map(str, es.result.xbest)) + ']', file=open("sin_weights.txt", "a"))
