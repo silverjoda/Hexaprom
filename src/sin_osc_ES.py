@@ -18,50 +18,65 @@ def matchsig(siga, sigb):
 def f(w, plot=False):
 
     # Make frequency pattern
-    N = 50
-    F = 0.3
+    N = 70
+    F = 0.7
     sig = np.sin(F * np.arange(N))
     pattern = np.fft.rfft(sig)
     real = np.abs(pattern.real)
+    imag = pattern.imag
 
-    out, state = [0,0] #np.random.randn(2) * 0.1
+    out, state = [0,1]
 
     outputs = []
+    states = []
 
     for _ in range(N):
 
         # fl
-        l = np.tanh(np.matmul([out, state], wdist.get_w('w1', w)) + wdist.get_w('b1', w))
+        l = np.tanh(np.matmul(np.array([out, state]), wdist.get_w('w1', w)) + wdist.get_w('b1', w))
         out, state = np.matmul(l, wdist.get_w('w2', w)) + wdist.get_w('b2', w)
 
         # Step environment
         outputs.append(out)
+        states.append(state)
 
     pred_pattern = np.fft.rfft(np.array(outputs))
     pred_real = np.abs(pred_pattern.real)
+    pred_imag = pred_pattern.imag
 
-    loss = np.mean(np.square(pred_real[:5] - real[:5]))
+    loss = np.mean(np.square(pred_real - real)) + np.mean(np.square(pred_imag - imag))
     #loss = matchsig(sig, outputs)
     #loss = np.mean(np.square(np.array(outputs) - sig))
 
-
     if plot:
         plt.figure(1)
-        plt.subplot(411)
+        plt.subplot(711)
         plt.ylabel('sig')
         plt.plot(np.arange(N), sig, 'k')
 
-        plt.subplot(412)
+        plt.subplot(712)
         plt.ylabel('sig_real')
         plt.plot(np.arange(N / 2 + 1), real, 'b')
 
-        plt.subplot(413)
+        plt.subplot(713)
+        plt.ylabel('sig_imag')
+        plt.plot(np.arange(N / 2 + 1), imag, 'b')
+
+        plt.subplot(714)
         plt.ylabel('predicted_sig')
         plt.plot(np.arange(N), outputs, 'k')
 
-        plt.subplot(414)
+        plt.subplot(715)
         plt.ylabel('pred_real')
-        plt.plot(np.arange(N/2 + 1), pred_real, 'b')
+        plt.plot(np.arange(N/2 + 1), pred_real, 'r')
+
+        plt.subplot(716)
+        plt.ylabel('pred_imag')
+        plt.plot(np.arange(N / 2 + 1), pred_imag, 'r')
+
+        plt.subplot(717)
+        plt.ylabel('state')
+        plt.plot(np.arange(N), states, 'g')
 
         plt.show()
 
@@ -77,19 +92,19 @@ wdist.addW((2,), 'b2')
 
 N_weights = wdist.get_N()
 print("Nweights: {}".format(N_weights))
-W_MULT = 0.5
+W_MULT = 1
 ACT_MULT = 1
 
 w = np.random.randn(N_weights) * W_MULT
 es = cma.CMAEvolutionStrategy(w, 0.5)
 
 try:
-    es.optimize(f, iterations=10000)
+    es.optimize(f, iterations=1000)
 except KeyboardInterrupt:
     print("User interrupted process.")
 es.result_pretty()
 
-for i in range(5):
-    f(w, plot=True)
+for i in range(1):
+   f(es.result.xbest, plot=True)
 
-print(es.result.xbest, file=open("sin_weights.txt", "a"))
+print(','.join(map(str, es.result.xbest)), file=open("sin_weights.txt", "a"))
