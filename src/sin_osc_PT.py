@@ -8,10 +8,13 @@ class Net(nn.Module):
 
     def __init__(self):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(2, 2)
+        self.fc1 = nn.Linear(3, 3)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(3, 3)
 
     def forward(self, x):
-        return self.fc1(x)
+        return self.fc2(self.relu(self.fc1(x)))
+        #return self.fc1(x)
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension
@@ -33,7 +36,7 @@ def matchsignal(net, iters, sig):
     for i in range(iters):
 
         # Initial values
-        x = torch.tensor([0, 0], dtype=torch.float32, requires_grad=True)
+        x = torch.tensor([0, 0, 0], dtype=torch.float32, requires_grad=True)
         xlist = []
 
         # Single iteration of signal generation
@@ -60,17 +63,18 @@ def eval(net, sig):
     imag = pattern.imag
 
     # Initial values
-    s = 0
+    s1 = 0
+    s2 = 0
     out = 0
 
     outputs = []
     states = []
 
     for j in range(N):
-        x = torch.tensor([out, s], dtype=torch.float32)
-        out, s = net(x)
+        x = torch.tensor([out, s1, s2], dtype=torch.float32)
+        out, s1, s2 = net(x)
         outputs.append(out.item())
-        states.append(s.item())
+        states.append(s1.item())
 
     pattern_pred = np.fft.rfft(np.array(outputs))
     pred_real = np.abs(pattern_pred.real)
@@ -117,9 +121,9 @@ osc = Net()
 print(osc)
 
 # Make signal
-F1 = 0.9
-F2 = 0.4
-sig = np.exp(np.sin(F1 * np.arange(N, dtype=np.float32)))
+F1 = 0.95
+F2 = 0.3
+sig = np.sin(F1 * np.arange(N, dtype=np.float32)) + np.sin(F2 * np.arange(N, dtype=np.float32))
 
 # Train
 try:
