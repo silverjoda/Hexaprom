@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import pytorch_fft.fft.autograd as fft
 import matplotlib.pyplot as plt
-
 
 class Net(nn.Module):
 
@@ -23,36 +23,29 @@ class Net(nn.Module):
 def matchsignal(net, iters, sig):
 
     N = len(sig)
+    tsig = torch.from_numpy(sig)
 
     # Torch objects
     lossfun = nn.MSELoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(net.parameters(), lr=3e-3)
 
     # Train iters times
     for i in range(iters):
 
         # Initial values
-        s = torch.tensor(0., requires_grad=True)
-        out = torch.tensor(0., requires_grad=True)
-
-        outputs = []
-        states = []
+        x = torch.tensor([0, 0], dtype=torch.float32, requires_grad=True)
+        xlist = []
 
         # Single iteration of signal generation
         for j in range(N):
-            x = torch.tensor([s, out], dtype=torch.float32)
-            out, s = net(x)
-            outputs.append(out)
-            states.append(s)
+            x = net(x)
+            xlist.append(x)
 
-        # Zero the gradient buffers and calculate loss
+        xlist = torch.stack(xlist)
+
         optimizer.zero_grad()
-        loss = lossfun(torch.stack(outputs), torch.from_numpy(sig).float())
-
-        # Backprop
-        loss.backward()
-
-        # Apply gradients
+        loss = lossfun(xlist[:, 0], tsig)
+        loss.backward(retain_graph=True)
         optimizer.step()
 
         if i % 50 == 0:
@@ -74,7 +67,7 @@ def eval(net, sig):
     states = []
 
     for j in range(N):
-        x = torch.tensor([s, out], dtype=torch.float32)
+        x = torch.tensor([out, s], dtype=torch.float32)
         out, s = net(x)
         outputs.append(out.item())
         states.append(s.item())
@@ -98,12 +91,11 @@ def eval(net, sig):
 
     plt.subplot(714)
     plt.ylabel('predicted_sig')
-    plt.plot(np.arange(N), outputs, 'r')
-
+    plt.plot(np.arange(N), outputs, 'k')
 
     plt.subplot(715)
     plt.ylabel('pred_real')
-    plt.plot(np.arange(N/2 + 1), pred_real, 'k')
+    plt.plot(np.arange(N/2 + 1), pred_real, 'r')
 
     plt.subplot(716)
     plt.ylabel('pred_imag')
@@ -118,7 +110,7 @@ def eval(net, sig):
 
 # Define parameters
 N = 30
-ITERS = 1000
+ITERS = 2000
 
 # Make oscillator model
 osc = Net()
@@ -127,7 +119,7 @@ print(osc)
 # Make signal
 F1 = 0.9
 F2 = 0.4
-sig = np.sin(F1 * np.arange(N))
+sig = np.exp(np.sin(F1 * np.arange(N, dtype=np.float32)))
 
 # Train
 try:
