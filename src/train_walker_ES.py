@@ -3,26 +3,18 @@ import gym
 import cma
 from pid import PDreg
 np.random.seed(0)
+from weight_distributor import Wdist
+
 
 # EXP:  CLone experiment and add control heirarchy (first policy controls femurs, femurs control coxas)
 
 def f(w):
 
-    w0 = w[0:n1_s[0]].reshape(n1_s)
-    w1 = w[n1_s[0]:2*n1_s[0]].reshape(n1_s)
-
-    w2 = w[n1:n1 + n2_s[0]].reshape(n2_s)
-    w3 = w[n1 + n2_s[0]:n1 + n2].reshape(n2_s)
-
-    w4 = w[n1 + n2:n1 + n2 + n3_s[0]].reshape(n3_s)
-    w5 = w[n1 + n2 + n3_s[0]:n1 + n2 + n3].reshape(n3_s)
-
     reward = 0
     done = False
     env_obs = env.reset()
-    prev_torques = 6 * [0]
-
-    pdreg = PDreg(1.5, 0.005)
+    rnn_states = {'h_m' : [0,0,0,0], 'h_h1' : [0,0,0,0], 'h_k1' : [0,0,0,0],'h_f1' : [0,0,0,0], 'h_h2' : [0,0,0,0], 'h_k2' : [0,0,0,0],'h_f2' : [0,0,0,0]}
+    y_m_prev = [0,0,0,0]
 
     # Observations
     # 0,  1,   2,   3,   4,   5,   6,   7,  8,  9,  10,   11,   12,   13,   14,   15,   16
@@ -30,42 +22,53 @@ def f(w):
 
     while not done:
 
-        # lj0
-        o0 = list(env_obs[[0, 1, 2, 5, 8, 9, 11]]) + list(np.array(prev_torques)[[0, 3]])
-        t0 = mult * np.tanh(np.matmul(o0, w0))
+        # Master node
+        obs = list(env_obs[[0, 1, 8, 9, 10]]) + rnn_states['h_h1'] + rnn_states['h_h2']
+        h_m = np.tanh(np.matmul(rnn_states['h_m'], wdist.get_w('m_w', w)) + np.matmul(obs, wdist.get_w('m_u', w)) + wdist.get_w('m_b', w))
+        y_m = np.matmul(h_m, wdist.get_w('m_v', w)) + wdist.get_w('m_c', w)
 
-        # lj1
-        o1 = list(env_obs[[2, 3, 4, 12]]) + list(np.array(prev_torques)[[1, 4]]) + [t0]
-        t1 = mult * np.tanh(np.matmul(o1, w2))
+        # h1 node
+        obs = list(env_obs[2]) + y_m[0:2] + rnn_states['h_k1']
+        h_h1 = np.tanh(np.matmul(rnn_states['h_h1'], wdist.get_w('h_w', w)) + np.matmul(obs, wdist.get_w('h_u', w)) + wdist.get_w('h_b', w))
+        y_h1 = np.matmul(h_h1, wdist.get_w('h_v', w)) + wdist.get_w('h_c', w)
 
-        # lj2
-        o2 = list(env_obs[[2, 3, 4, 13]]) + list(np.array(prev_torques)[[2]]) + [t0, t1]
-        t2 = mult * np.tanh(np.matmul(o2, w4))
+        # h2 node
+        obs = list(env_obs[5]) + y_m[2:] + rnn_states['h_k2']
+        h_h2 = np.tanh(np.matmul(rnn_states['h_h2'], wdist.get_w('h_w', w)) + np.matmul(obs, wdist.get_w('h_u', w)) + wdist.get_w('h_b', w))
+        y_h2 = np.matmul(h_h2, wdist.get_w('h_v', w)) + wdist.get_w('h_c', w)
 
-        # rj0
-        o3 = list(env_obs[[0, 1, 5, 2, 9, 8, 14]]) + list(np.array(prev_torques)[[3, 0]])
-        t3 = mult * np.tanh(np.matmul(o3, w1))
+        # k1 node
+        obs = list(env_obs[3]) + rnn_states['h_h1'] + rnn_states['h_f1']
+        h_k1 = np.tanh(np.matmul(rnn_states['h_k1'], wdist.get_w('k_w', w)) + np.matmul(obs, wdist.get_w('k_u', w)) + wdist.get_w('k_b', w))
+        y_k1 = np.matmul(h_k1, wdist.get_w('k_v', w)) + wdist.get_w('k_c', w)
 
-        # rj1
-        o4 = list(env_obs[[5, 6, 7, 15]]) + list(np.array(prev_torques)[[4, 1]]) + [t3]
-        t4 = mult * np.tanh(np.matmul(o4, w3))
+        # k2 node
+        obs = list(env_obs[6]) + rnn_states['h_h2'] + rnn_states['h_f2']
+        h_k2 = np.tanh(np.matmul(rnn_states['h_k2'], wdist.get_w('k_w', w)) + np.matmul(obs, wdist.get_w('k_u', w)) + wdist.get_w('k_b', w))
+        y_k2 = np.matmul(h_k2, wdist.get_w('k_v', w)) + wdist.get_w('k_c', w)
 
-        # rj2
-        o5 = list(env_obs[[5, 6, 7, 16]]) + list(np.array(prev_torques)[[5]]) + [t3, t4]
-        t5 = mult * np.tanh(np.matmul(o5, w5))
+        # f1 node
+        obs = list(env_obs[4]) + rnn_states['h_k1']
+        h_f1 = np.tanh(np.matmul(rnn_states['h_f1'], wdist.get_w('f_w', w)) + np.matmul(obs, wdist.get_w('f_u', w)) + wdist.get_w('f_b', w))
+        y_f1 = np.matmul(h_f1, wdist.get_w('f_v', w)) + wdist.get_w('f_c', w)
 
-        action = [t0[0], t1[0], t2[0], t3[0], t4[0], t5[0]]
+        # f1 node
+        obs = list(env_obs[7]) + rnn_states['h_k2']
+        h_f2 = np.tanh(np.matmul(rnn_states['h_f2'], wdist.get_w('f_w', w)) + np.matmul(obs, wdist.get_w('f_u', w)) + wdist.get_w('f_b', w))
+        y_f2 = np.matmul(h_f2, wdist.get_w('f_v', w)) + wdist.get_w('f_c', w)
 
-        a0, a1, a2, a3, a4, a5 = pdreg.update(env_obs[[2, 3, 4, 5, 6, 7]], action)
+        rnn_states = {'h_m': h_m, 'h_h1': h_h1, 'h_k1': h_k1, 'h_f1': h_f1,
+                      'h_h2': h_h2, 'h_k2': h_k2, 'h_f2': h_f2}
+
+        action = [y_h1, y_k1, y_f1, y_h2, y_k2, y_f2]
 
         # Step environment
-        env_obs, rew, done, _ = env.step([a0, a1, a2, a3, a4, a5])
+        env_obs, rew, done, _ = env.step(action)
 
         if animate:
             env.render()
 
         reward += rew
-        prev_torques = action
 
     return -reward
 
@@ -74,20 +77,43 @@ env = gym.make("Walker2d-v2")
 animate = False
 
 # Generate weights
-n1_s = (9, 1)
-n2_s = (7, 1)
-n3_s = (7, 1)
+wdist = Wdist()
 
-n1 = 2 * n1_s[0] * n1_s[1]
-n2 = 2 * n2_s[0] * n2_s[1]
-n3 = 2 * n3_s[0] * n3_s[1]
+# Master node
+wdist.addW((4, 4), 'm_w') # Hidden -> Hidden
+wdist.addW((9, 4), 'm_u') # Input -> Hidden
+wdist.addW((4, 4), 'm_v') # Hidden -> Output
+wdist.addW((4,), 'm_b') # Hidden bias
+wdist.addW((4,), 'm_c') # Output bias
 
-N_weights = n1 + n2 + n3
+# Hip node
+wdist.addW((2, 2), 'h_w')
+wdist.addW((5, 2), 'h_u')
+wdist.addW((2, 1), 'h_v')
+wdist.addW((2,), 'h_b')
+wdist.addW((1,), 'h_c')
+
+# Knee node
+wdist.addW((2, 2), 'k_w')
+wdist.addW((5, 2), 'k_u')
+wdist.addW((2, 1), 'k_v')
+wdist.addW((2,), 'k_b')
+wdist.addW((1,), 'k_c')
+
+# Foot node
+wdist.addW((2, 2), 'm_w')
+wdist.addW((3, 2), 'm_u')
+wdist.addW((2, 1), 'm_v')
+wdist.addW((2,), 'm_b')
+wdist.addW((1,), 'm_c')
+
+
+N_weights = wdist.get_N()
+print("Nweights: {}".format(N_weights))
 W_MULT = 1
-mult = 1
+ACT_MULT = 1
+
 w = np.random.randn(N_weights) * W_MULT
-
-
 es = cma.CMAEvolutionStrategy(w, 0.5)
 try:
     es.optimize(f, iterations=20000)
