@@ -22,7 +22,7 @@ def f(w):
     while not done:
 
         # Master node
-        obs = list(env_obs[[0, 1, 8, 9, 10]]) + rnn_states['h_h1'] + rnn_states['h_h2']
+        obs = list(env_obs[[0, 1, 8, 9, 10]]) + list(rnn_states['h_h1']) + list(rnn_states['h_h2'])
         h_m = np.tanh(np.matmul(wdist.get_w('m_w', w).T, rnn_states['h_m']) + np.matmul(wdist.get_w('m_u', w).T, obs) + wdist.get_w('m_b', w))
         y_m = np.matmul(h_m, wdist.get_w('m_v', w)) + wdist.get_w('m_c', w)
 
