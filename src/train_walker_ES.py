@@ -13,8 +13,7 @@ def f(w):
     reward = 0
     done = False
     env_obs = env.reset()
-    rnn_states = {'h_m' : [0,0,0,0], 'h_h1' : [0,0,0,0], 'h_k1' : [0,0,0,0],'h_f1' : [0,0,0,0], 'h_h2' : [0,0,0,0], 'h_k2' : [0,0,0,0],'h_f2' : [0,0,0,0]}
-    y_m_prev = [0,0,0,0]
+    rnn_states = {'h_m' : [0,0,0,0], 'h_h1' : [0,0], 'h_k1' : [0,0],'h_f1' : [0,0], 'h_h2' : [0,0], 'h_k2' : [0,0],'h_f2' : [0,0]}
 
     # Observations
     # 0,  1,   2,   3,   4,   5,   6,   7,  8,  9,  10,   11,   12,   13,   14,   15,   16
@@ -24,38 +23,38 @@ def f(w):
 
         # Master node
         obs = list(env_obs[[0, 1, 8, 9, 10]]) + rnn_states['h_h1'] + rnn_states['h_h2']
-        h_m = np.tanh(np.matmul(rnn_states['h_m'], wdist.get_w('m_w', w)) + np.matmul(obs, wdist.get_w('m_u', w)) + wdist.get_w('m_b', w))
+        h_m = np.tanh(np.matmul(wdist.get_w('m_w', w).T, rnn_states['h_m']) + np.matmul(wdist.get_w('m_u', w).T, obs) + wdist.get_w('m_b', w))
         y_m = np.matmul(h_m, wdist.get_w('m_v', w)) + wdist.get_w('m_c', w)
 
         # h1 node
-        obs = list(env_obs[2]) + y_m[0:2] + rnn_states['h_k1']
-        h_h1 = np.tanh(np.matmul(rnn_states['h_h1'], wdist.get_w('h_w', w)) + np.matmul(obs, wdist.get_w('h_u', w)) + wdist.get_w('h_b', w))
-        y_h1 = np.matmul(h_h1, wdist.get_w('h_v', w)) + wdist.get_w('h_c', w)
+        obs = list(env_obs[2:3]) + list(y_m[0:2]) + list(rnn_states['h_k1'])
+        h_h1 = np.tanh(np.matmul(wdist.get_w('h_w', w).T, rnn_states['h_h1']) + np.matmul(wdist.get_w('h_u', w).T, obs) + wdist.get_w('h_b', w))
+        y_h1 = np.matmul(wdist.get_w('h_v', w).T, h_h1) + wdist.get_w('h_c', w)
 
         # h2 node
-        obs = list(env_obs[5]) + y_m[2:] + rnn_states['h_k2']
-        h_h2 = np.tanh(np.matmul(rnn_states['h_h2'], wdist.get_w('h_w', w)) + np.matmul(obs, wdist.get_w('h_u', w)) + wdist.get_w('h_b', w))
-        y_h2 = np.matmul(h_h2, wdist.get_w('h_v', w)) + wdist.get_w('h_c', w)
+        obs = list(env_obs[5:6]) + list(y_m[2:4]) + list(rnn_states['h_k2'])
+        h_h2 = np.tanh(np.matmul(wdist.get_w('h_w', w).T, rnn_states['h_h2']) + np.matmul(wdist.get_w('h_u', w).T,obs) + wdist.get_w('h_b', w))
+        y_h2 = np.matmul(wdist.get_w('h_v', w).T, h_h2) + wdist.get_w('h_c', w)
 
         # k1 node
-        obs = list(env_obs[3]) + rnn_states['h_h1'] + rnn_states['h_f1']
-        h_k1 = np.tanh(np.matmul(rnn_states['h_k1'], wdist.get_w('k_w', w)) + np.matmul(obs, wdist.get_w('k_u', w)) + wdist.get_w('k_b', w))
-        y_k1 = np.matmul(h_k1, wdist.get_w('k_v', w)) + wdist.get_w('k_c', w)
+        obs = list(env_obs[3:4]) + list(rnn_states['h_h1']) + list(rnn_states['h_f1'])
+        h_k1 = np.tanh(np.matmul(wdist.get_w('k_w', w).T, rnn_states['h_k1']) + np.matmul(wdist.get_w('k_u', w).T, obs) + wdist.get_w('k_b', w))
+        y_k1 = np.matmul(wdist.get_w('k_v', w).T, h_k1) + wdist.get_w('k_c', w)
 
         # k2 node
-        obs = list(env_obs[6]) + rnn_states['h_h2'] + rnn_states['h_f2']
-        h_k2 = np.tanh(np.matmul(rnn_states['h_k2'], wdist.get_w('k_w', w)) + np.matmul(obs, wdist.get_w('k_u', w)) + wdist.get_w('k_b', w))
-        y_k2 = np.matmul(h_k2, wdist.get_w('k_v', w)) + wdist.get_w('k_c', w)
+        obs = list(env_obs[6:7]) + list(rnn_states['h_h2']) + list(rnn_states['h_f2'])
+        h_k2 = np.tanh(np.matmul(wdist.get_w('k_w', w).T, rnn_states['h_k2']) + np.matmul(wdist.get_w('k_u', w).T,obs) + wdist.get_w('k_b', w))
+        y_k2 = np.matmul(wdist.get_w('k_v', w).T, h_k2) + wdist.get_w('k_c', w)
 
         # f1 node
-        obs = list(env_obs[4]) + rnn_states['h_k1']
-        h_f1 = np.tanh(np.matmul(rnn_states['h_f1'], wdist.get_w('f_w', w)) + np.matmul(obs, wdist.get_w('f_u', w)) + wdist.get_w('f_b', w))
-        y_f1 = np.matmul(h_f1, wdist.get_w('f_v', w)) + wdist.get_w('f_c', w)
+        obs = list(env_obs[4:5]) + list(rnn_states['h_k1'])
+        h_f1 = np.tanh(np.matmul(wdist.get_w('f_w', w).T, rnn_states['h_f1']) + np.matmul(wdist.get_w('f_u', w).T, obs) + wdist.get_w('f_b', w))
+        y_f1 = np.matmul(wdist.get_w('f_v', w).T, h_f1) + wdist.get_w('f_c', w)
 
         # f1 node
-        obs = list(env_obs[7]) + rnn_states['h_k2']
-        h_f2 = np.tanh(np.matmul(rnn_states['h_f2'], wdist.get_w('f_w', w)) + np.matmul(obs, wdist.get_w('f_u', w)) + wdist.get_w('f_b', w))
-        y_f2 = np.matmul(h_f2, wdist.get_w('f_v', w)) + wdist.get_w('f_c', w)
+        obs = list(env_obs[7:8]) + list(rnn_states['h_k2'])
+        h_f2 = np.tanh(np.matmul(wdist.get_w('f_w', w).T, rnn_states['h_f2']) + np.matmul(wdist.get_w('f_u', w).T, obs) + wdist.get_w('f_b', w))
+        y_f2 = np.matmul(wdist.get_w('f_v', w).T, h_f2) + wdist.get_w('f_c', w)
 
         rnn_states = {'h_m': h_m, 'h_h1': h_h1, 'h_k1': h_k1, 'h_f1': h_f1,
                       'h_h2': h_h2, 'h_k2': h_k2, 'h_f2': h_f2}
@@ -101,11 +100,11 @@ wdist.addW((2,), 'k_b')
 wdist.addW((1,), 'k_c')
 
 # Foot node
-wdist.addW((2, 2), 'm_w')
-wdist.addW((3, 2), 'm_u')
-wdist.addW((2, 1), 'm_v')
-wdist.addW((2,), 'm_b')
-wdist.addW((1,), 'm_c')
+wdist.addW((2, 2), 'f_w')
+wdist.addW((3, 2), 'f_u')
+wdist.addW((2, 1), 'f_v')
+wdist.addW((2,), 'f_b')
+wdist.addW((1,), 'f_c')
 
 
 N_weights = wdist.get_N()
@@ -116,7 +115,7 @@ ACT_MULT = 1
 w = np.random.randn(N_weights) * W_MULT
 es = cma.CMAEvolutionStrategy(w, 0.5)
 try:
-    es.optimize(f, iterations=20000)
+    es.optimize(f, iterations=10000)
 except KeyboardInterrupt:
     print("User interrupted process.")
 es.result_pretty()
