@@ -25,6 +25,8 @@ def f(w):
     # 0,  1,   2,   3,   4,   5,   6,   7,  8,  9,  10,   11,   12,   13,   14,   15,   16
     # z, th, lj0, lj1, lj2, rj0, rj1, rj2, dx, dz, dth, dlj0, dlj1, dlj2, drj0, drj1, drj2
 
+    pdreg = PDreg(3, 0.05)
+
     while not done:
 
         # Master node
@@ -66,6 +68,7 @@ def f(w):
                       'h_h2': h_h2, 'h_k2': h_k2, 'h_f2': h_f2}
 
         action = [y_h1, y_k1, y_f1, y_h2, y_k2, y_f2]
+        #pd_action = pdreg.update([a[0] for a in action], env_obs[2:8])
 
         # Step environment
         env_obs, rew, done, _ = env.step(action)
@@ -79,7 +82,7 @@ def f(w):
 
 # Make environment
 env = gym.make("Walker2d-v2")
-animate = False
+animate = True
 
 # Generate weights
 wdist = Wdist()
@@ -130,4 +133,4 @@ except KeyboardInterrupt:
 es.result_pretty()
 
 
-print('w = [' + ','.join(map(str, es.result.xbest)) + ']', file=open("walker_weights.txt", "a"))
+print('w = [' + ','.join(map(str, es.result.xbest)) + '] '  + str(es.result.fbest), file=open("walker_weights.txt", "a"))
