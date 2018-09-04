@@ -1,20 +1,22 @@
-import numpy as np
 import torch
+import numpy as np
 import torch.nn as nn
 import pytorch_fft.fft.autograd as fft
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
+import torch.optim as optim
+import torch.nn as nn
 
-class Net(nn.Module):
+class RNet(nn.Module):
 
-    def __init__(self):
-        super(Net, self).__init__()
-        self.fc1 = nn.Linear(3, 3)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(3, 3)
+    def __init__(self, m_hid, osc_hid):
+        super(RNet, self).__init__()
+        self.m_rnn = nn.RNNCell(5 + m_hid)
+        self.m_rnn = nn.RNNCell(5 + m_hid)
+        self.out = nn.Linear(3, 3)
 
     def forward(self, x):
         return self.fc2(self.relu(self.fc1(x)))
-        #return self.fc1(x)
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension
@@ -23,10 +25,9 @@ class Net(nn.Module):
             num_features *= s
         return num_features
 
-def matchsignal(net, iters, sig):
+def matchsignal(net, iters, N):
 
-    N = len(sig)
-    tsig = torch.from_numpy(sig)
+    batchsize = 16
 
     # Torch objects
     lossfun = nn.MSELoss()
@@ -35,19 +36,26 @@ def matchsignal(net, iters, sig):
     # Train iters times
     for i in range(iters):
 
-        # Initial values
-        x = torch.tensor([0, 0, 0], dtype=torch.float32, requires_grad=True)
-        xlist = []
+        tsigs = []
 
-        # Single iteration of signal generation
-        for j in range(N):
-            x = net(x)
-            xlist.append(x)
+        for j in range(batchsize):
+            # Make signal
+            F1 = np.random.rand() + 0.1
+            F2 = np.random.rand() + 0.3
 
-        xlist = torch.stack(xlist)
+            # generate batch of signals
+            sig = np.sin(F1 * np.arange(N, dtype=np.float32) + np.random.randn) + \
+                  np.sin(F2 * np.arange(N, dtype=np.float32) + np.random.randn)
+            tsigs.append(torch.from_numpy(sig))
+
+        sig_batch = torch.stack(tsigs)
+        # TODO: MAKE LSTM, MAke signal batch generation, make lstm training
+
+        # Get predictions
+        y = net(sig_batch)
 
         optimizer.zero_grad()
-        loss = lossfun(xlist[:, 0], tsig)
+        loss = lossfun(y, sig_batch)
         loss.backward(retain_graph=True)
         optimizer.step()
 
@@ -117,19 +125,14 @@ N = 30
 ITERS = 2000
 
 # Make oscillator model
-osc = Net()
+osc = RNet()
 print(osc)
-
-# Make signal
-F1 = 0.95
-F2 = 0.3
-sig = np.sin(F1 * np.arange(N, dtype=np.float32)) + np.sin(F2 * np.arange(N, dtype=np.float32))
 
 # Train
 try:
-    matchsignal(osc, ITERS, sig)
+    matchsignal(osc, ITERS)
 except KeyboardInterrupt:
     print("User interrupted process.")
 
 #Evaluate result
-eval(osc, sig)
+eval(osc)

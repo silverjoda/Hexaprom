@@ -13,7 +13,13 @@ def f(w):
     reward = 0
     done = False
     env_obs = env.reset()
-    rnn_states = {'h_m' : [0,0,0,0], 'h_h1' : [0,0], 'h_k1' : [0,0],'h_f1' : [0,0], 'h_h2' : [0,0], 'h_k2' : [0,0],'h_f2' : [0,0]}
+    rnn_states = {'h_m' : [0] * n_hidden_m,
+                  'h_h1' : [0] * n_hidden_osc,
+                  'h_k1' : [0] * n_hidden_osc,
+                  'h_f1' : [0] * n_hidden_osc,
+                  'h_h2' : [0] * n_hidden_osc,
+                  'h_k2' : [0] * n_hidden_osc,
+                  'h_f2' : [0] * n_hidden_osc}
 
     # Observations
     # 0,  1,   2,   3,   4,   5,   6,   7,  8,  9,  10,   11,   12,   13,   14,   15,   16
@@ -27,12 +33,12 @@ def f(w):
         y_m = np.matmul(h_m, wdist.get_w('m_v', w)) + wdist.get_w('m_c', w)
 
         # h1 node
-        obs = list(env_obs[2:3]) + list(y_m[0:2]) + list(rnn_states['h_k1'])
+        obs = list(env_obs[2:3]) + list(y_m[0:n_hidden_osc]) + list(rnn_states['h_k1'])
         h_h1 = np.tanh(np.matmul(wdist.get_w('h_w', w).T, rnn_states['h_h1']) + np.matmul(wdist.get_w('h_u', w).T, obs) + wdist.get_w('h_b', w))
         y_h1 = np.matmul(wdist.get_w('h_v', w).T, h_h1) + wdist.get_w('h_c', w)
 
         # h2 node
-        obs = list(env_obs[5:6]) + list(y_m[2:4]) + list(rnn_states['h_k2'])
+        obs = list(env_obs[5:6]) + list(y_m[n_hidden_osc:]) + list(rnn_states['h_k2'])
         h_h2 = np.tanh(np.matmul(wdist.get_w('h_w', w).T, rnn_states['h_h2']) + np.matmul(wdist.get_w('h_u', w).T,obs) + wdist.get_w('h_b', w))
         y_h2 = np.matmul(wdist.get_w('h_v', w).T, h_h2) + wdist.get_w('h_c', w)
 
@@ -78,41 +84,44 @@ animate = False
 # Generate weights
 wdist = Wdist()
 
+n_hidden_m = 4
+n_hidden_osc = 2
+
 # Master node
-wdist.addW((4, 4), 'm_w') # Hidden -> Hidden
-wdist.addW((9, 4), 'm_u') # Input -> Hidden
-wdist.addW((4, 4), 'm_v') # Hidden -> Output
-wdist.addW((4,), 'm_b') # Hidden bias
-wdist.addW((4,), 'm_c') # Output bias
+wdist.addW((n_hidden_m, n_hidden_m), 'm_w') # Hidden -> Hidden
+wdist.addW((5 + 2 * n_hidden_osc, n_hidden_m), 'm_u') # Input -> Hidden
+wdist.addW((n_hidden_m, 2 * n_hidden_osc), 'm_v') # Hidden -> Output
+wdist.addW((n_hidden_m,), 'm_b') # Hidden bias
+wdist.addW((2 * n_hidden_osc,), 'm_c') # Output bias
 
 # Hip node
-wdist.addW((2, 2), 'h_w')
-wdist.addW((5, 2), 'h_u')
-wdist.addW((2, 1), 'h_v')
-wdist.addW((2,), 'h_b')
+wdist.addW((n_hidden_osc, n_hidden_osc), 'h_w')
+wdist.addW((1 + 2 * n_hidden_osc, n_hidden_osc), 'h_u')
+wdist.addW((n_hidden_osc, 1), 'h_v')
+wdist.addW((n_hidden_osc,), 'h_b')
 wdist.addW((1,), 'h_c')
 
 # Knee node
-wdist.addW((2, 2), 'k_w')
-wdist.addW((5, 2), 'k_u')
-wdist.addW((2, 1), 'k_v')
-wdist.addW((2,), 'k_b')
+wdist.addW((n_hidden_osc, n_hidden_osc), 'k_w')
+wdist.addW((1 + 2 * n_hidden_osc, n_hidden_osc), 'k_u')
+wdist.addW((n_hidden_osc, 1), 'k_v')
+wdist.addW((n_hidden_osc,), 'k_b')
 wdist.addW((1,), 'k_c')
 
 # Foot node
-wdist.addW((2, 2), 'f_w')
-wdist.addW((3, 2), 'f_u')
-wdist.addW((2, 1), 'f_v')
-wdist.addW((2,), 'f_b')
+wdist.addW((n_hidden_osc, n_hidden_osc), 'f_w')
+wdist.addW((1 + n_hidden_osc, n_hidden_osc), 'f_u')
+wdist.addW((n_hidden_osc, 1), 'f_v')
+wdist.addW((n_hidden_osc,), 'f_b')
 wdist.addW((1,), 'f_c')
 
-
 N_weights = wdist.get_N()
-print("Nweights: {}".format(N_weights))
+print("Nweights: {}, nhm: {}, nho: {}".format(N_weights, n_hidden_m, n_hidden_osc))
 W_MULT = 1
 ACT_MULT = 1
 
 w = np.random.randn(N_weights) * W_MULT
+
 es = cma.CMAEvolutionStrategy(w, 0.5)
 try:
     es.optimize(f, iterations=10000)
@@ -121,4 +130,4 @@ except KeyboardInterrupt:
 es.result_pretty()
 
 
-print(es.result.xbest, file=open("walker_weights.txt", "a"))
+print('w = [' + ','.join(map(str, es.result.xbest)) + ']', file=open("walker_weights.txt", "a"))
