@@ -120,12 +120,12 @@ wdist.addW((1,), 'f_c')
 
 N_weights = wdist.get_N()
 print("Nweights: {}, nhm: {}, nho: {}".format(N_weights, n_hidden_m, n_hidden_osc))
-W_MULT = 1
+W_MULT = 3
 ACT_MULT = 1
 
 w = np.random.randn(N_weights) * W_MULT
 
-es = cma.CMAEvolutionStrategy(w, 0.5)
+es = cma.CMAEvolutionStrategy(w, 0.9)
 try:
     es.optimize(f, iterations=10000)
 except KeyboardInterrupt:

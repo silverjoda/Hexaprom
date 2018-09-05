@@ -24,7 +24,6 @@ import torch.nn as nn
 gym_logger.setLevel(logging.CRITICAL)
 
 
-
 class RNet(nn.Module):
 
     def __init__(self, m_hid, osc_hid):
@@ -105,59 +104,25 @@ class RNet(nn.Module):
             num_features *= s
         return num_features
 
+def train_imitation(model, trajectories, iters):
+    for i in range(iters):
+        # Sample random whole episodes
+
+        # Rollout
+
+        # MSE
+
+        # Apply grads
+
+
+        pass
+
 # add the model on top of the convolutional base
 model = RNet(4,2)
 model.apply(weights_init)
 
+# Load trajectories
+trajectories = pickle.load("/home/silverjoda/SW/baselines/data/Walker2d-v2_rollouts")
 
-
-def get_reward(weights, model, render=False):
-    cloned_model = copy.deepcopy(model)
-    for i, param in enumerate(cloned_model.parameters()):
-        try:
-            param.data.copy_(weights[i])
-        except:
-            param.data.copy_(weights[i].data)
-
-    env = gym.make("Walker2d-v2")
-    ob = env.reset()
-    done = False
-    total_reward = 0
-    while not done:
-        if render:
-            pass
-            #env.render()
-        batch = torch.from_numpy(ob[np.newaxis, ...]).float()
-        prediction = cloned_model(Variable(batch, volatile=True))
-        action = prediction.data[0]
-        ob, reward, done, _ = env.step(action)
-
-        total_reward += reward
-
-    #env.close()
-    return total_reward
-
-#
-# weights = pickle.load(open(os.path.abspath("es_walkerweights.p"), 'rb'))
-# print(get_reward(weights, model, render=True))
-# exit()
-
-partial_func = partial(get_reward, model=model)
-mother_parameters = list(model.parameters())
-
-es = EvolutionModule(
-    mother_parameters, partial_func, population_size=50,
-    sigma=0.1, learning_rate=0.001, reward_goal=300, consecutive_goal_stopping=20,
-    threadcount=3, cuda=False, render_test=True
-)
-start = time.time()
-final_weights = es.run(5000, print_step=1)
-end = time.time() - start
-
-pickle.dump(final_weights, open(os.path.abspath("es_walkerweights.p"), 'wb'))
-
-reward = partial_func(final_weights, render=True)
-
-print(f"Reward from final weights: {reward}")
-print(f"Time to completion: {end}")
-
+# Train model to imitate trajectories
+train_imitation(model, trajectories)
