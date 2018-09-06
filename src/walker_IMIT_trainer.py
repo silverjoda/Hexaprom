@@ -150,7 +150,7 @@ def train_imitation(model,baseline, trajectories, iters):
 
     lossfun = nn.MSELoss()
     rnn_optim = torch.optim.Adam(model.parameters(), lr=5e-3)
-    baseline_optim = torch.optim.Adam(model.parameters(), lr=1e-3)
+    baseline_optim = torch.optim.Adam(baseline.parameters(), lr=1e-3)
 
     for i in range(iters):
         # Sample random whole episodes
