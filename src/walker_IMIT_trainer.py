@@ -58,19 +58,19 @@ class RNet(nn.Module):
         self.reset()
 
         # Master
-        self.m_rnn = nn.RNNCell(5 + 2 * osc_hid, m_hid)
+        self.m_rnn = nn.GRUCell(5 + 2 * osc_hid, m_hid)
         self.m_out = nn.Linear(m_hid, 2 * osc_hid)
 
         # Hip
-        self.h_rnn = nn.RNNCell(1 + 2 * osc_hid, osc_hid)
+        self.h_rnn = nn.GRUCell(1 + 2 * osc_hid, osc_hid)
         self.h_out = nn.Linear(osc_hid, 1)
 
         # Knee
-        self.k_rnn = nn.RNNCell(1 + 2 * osc_hid, osc_hid)
+        self.k_rnn = nn.GRUCell(1 + 2 * osc_hid, osc_hid)
         self.k_out = nn.Linear(osc_hid, 1)
 
         # Foot
-        self.f_rnn = nn.RNNCell(1 + osc_hid, osc_hid)
+        self.f_rnn = nn.GRUCell(1 + osc_hid, osc_hid)
         self.f_out = nn.Linear(osc_hid, 1)
 
 
@@ -149,7 +149,7 @@ def train_imitation(model,baseline, trajectories, iters):
     print("Starting training. Obs dim: {}, Act dim: {}".format(obs_dim, act_dim))
 
     lossfun = nn.MSELoss()
-    rnn_optim = torch.optim.Adam(model.parameters(), lr=5e-3)
+    rnn_optim = torch.optim.Adam(model.parameters(), lr=9e-3)
     baseline_optim = torch.optim.Adam(baseline.parameters(), lr=1e-3)
 
     for i in range(iters):
