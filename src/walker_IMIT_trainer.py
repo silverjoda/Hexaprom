@@ -97,6 +97,15 @@ class RNet(nn.Module):
 
         return action
 
+    def reset(self):
+        self.h1_s.data.zero_()
+        self.h2_s.data.zero_()
+        self.k1_s.data.zero_()
+        self.k2_s.data.zero_()
+        self.f1_s.data.zero_()
+        self.f2_s.data.zero_()
+
+
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension
         num_features = 1
@@ -105,17 +114,36 @@ class RNet(nn.Module):
         return num_features
 
 def train_imitation(model, trajectories, iters):
+    N = len(trajectories)
+    obs_dim = len(trajectories[0][0][0])
+    act_dim = len(trajectories[0][0][1])
+
+    print("Starting training. Obs dim: {}, Act dim: {}".format(obs_dim, act_dim))
+
+    lossfun = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+
     for i in range(iters):
         # Sample random whole episodes
+        rand_episode = trajectories[np.random.randint(0, N)]
+        obs_list, act_list = zip(*rand_episode)
+        obs_array = torch.from_numpy(np.expand_dims(np.array(obs_list), 0))
+        act_array = torch.from_numpy(np.expand_dims(np.array(act_list), 0))
+
+        y_pred_list = []
 
         # Rollout
+        optimizer.zero_grad()
+        for obs in obs_array:
+            y_pred_list.append(model(obs))
+        y_preds = torch.cat(y_pred_list, 0)
 
-        # MSE
+        # MSE & gradients
+        loss = lossfun(y_preds, act_array)
+        loss.backward()
+        optimizer.step()
 
-        # Apply grads
-
-
-        pass
+        print("Iteration: {}/{}, Loss: {}".format(i, iters, loss))
 
 # add the model on top of the convolutional base
 model = RNet(4,2)
