@@ -49,6 +49,8 @@ class Baseline(nn.Module):
 
 class RNet(nn.Module):
 
+    # TODO: FIX HIDDEN STATE BLOW UP
+
     def __init__(self, m_hid, osc_hid):
         super(RNet, self).__init__()
         self.m_hid = m_hid
@@ -77,7 +79,6 @@ class RNet(nn.Module):
     def forward(self, x):
         #h1, k1, f1, h2, k2, f2, *m_obs = x[0, [2, 3, 4, 5, 6, 7, 0, 1, 8, 9, 10]]
 
-
         h1 = x[:, 2]
         k1 = x[:, 3]
         f1 = x[:, 4]
@@ -95,8 +96,8 @@ class RNet(nn.Module):
         k1_s = self.k_rnn(torch.cat([k1.unsqueeze(0), self.h1_s, self.f1_s], 1), self.k1_s)
         k2_s = self.k_rnn(torch.cat([k2.unsqueeze(0), self.h2_s, self.f2_s], 1), self.k2_s)
 
-        f1_s = self.f_rnn(torch.cat([f1.unsqueeze(0), self.f1_s], 1), self.f1_s)
-        f2_s = self.f_rnn(torch.cat([f2.unsqueeze(0), self.f2_s], 1), self.f2_s)
+        f1_s = self.f_rnn(torch.cat([f1.unsqueeze(0), self.k1_s], 1), self.f1_s)
+        f2_s = self.f_rnn(torch.cat([f2.unsqueeze(0), self.k2_s], 1), self.f2_s)
 
         self.h1_s = h1_s
         self.h2_s = h2_s
@@ -189,7 +190,7 @@ def train_imitation(model,baseline, trajectories, iters):
 baseline = Baseline(17, 6)
 
 # RNN
-model = RNet(4,2)
+model = RNet(6,3)
 model.apply(weights_init)
 
 # Load trajectories
