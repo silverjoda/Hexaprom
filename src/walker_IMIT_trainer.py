@@ -34,25 +34,25 @@ class RNet(nn.Module):
         # Master
         self.m_rnn = nn.RNNCell(5 + 2 * osc_hid, m_hid)
         self.m_out = nn.Linear(m_hid, 2 * osc_hid)
-        self.m_s = Variable(torch.zeros(1, m_hid))
+        self.m_s = Variable(torch.zeros(1, m_hid)).float()
 
         # Hip
         self.h_rnn = nn.RNNCell(1 + 2 * osc_hid, osc_hid)
         self.h_out = nn.Linear(osc_hid, 1)
-        self.h1_s = Variable(torch.zeros(1, osc_hid))
-        self.h2_s = Variable(torch.zeros(1, osc_hid))
+        self.h1_s = Variable(torch.zeros(1, osc_hid)).float()
+        self.h2_s = Variable(torch.zeros(1, osc_hid)).float()
 
         # Knee
         self.k_rnn = nn.RNNCell(1 + 2 * osc_hid, osc_hid)
         self.k_out = nn.Linear(osc_hid, 1)
-        self.k1_s = Variable(torch.zeros(1, osc_hid))
-        self.k2_s = Variable(torch.zeros(1, osc_hid))
+        self.k1_s = Variable(torch.zeros(1, osc_hid)).float()
+        self.k2_s = Variable(torch.zeros(1, osc_hid)).float()
 
         # Foot
         self.f_rnn = nn.RNNCell(1 + osc_hid, osc_hid)
         self.f_out = nn.Linear(osc_hid, 1)
-        self.f1_s = Variable(torch.zeros(1, osc_hid))
-        self.f2_s = Variable(torch.zeros(1, osc_hid))
+        self.f1_s = Variable(torch.zeros(1, osc_hid)).float()
+        self.f2_s = Variable(torch.zeros(1, osc_hid)).float()
 
     def forward(self, x):
         #h1, k1, f1, h2, k2, f2, *m_obs = x[0, [2, 3, 4, 5, 6, 7, 0, 1, 8, 9, 10]]
@@ -127,20 +127,20 @@ def train_imitation(model, trajectories, iters):
         # Sample random whole episodes
         rand_episode = trajectories[np.random.randint(0, N)]
         obs_list, act_list = zip(*rand_episode)
-        obs_array = torch.from_numpy(np.expand_dims(np.array(obs_list), 0))
-        act_array = torch.from_numpy(np.expand_dims(np.array(act_list), 0))
+        obs_array = torch.from_numpy(np.array(obs_list, dtype=np.float32))
+        act_array = torch.from_numpy(np.array(act_list, dtype=np.float32))
 
         y_pred_list = []
 
         # Rollout
         optimizer.zero_grad()
         for obs in obs_array:
-            y_pred_list.append(model(obs))
+            y_pred_list.append(model(obs.unsqueeze(0)))
         y_preds = torch.cat(y_pred_list, 0)
 
         # MSE & gradients
         loss = lossfun(y_preds, act_array)
-        loss.backward()
+        loss.backward(retain_graph=True)
         optimizer.step()
 
         print("Iteration: {}/{}, Loss: {}".format(i, iters, loss))
@@ -150,7 +150,7 @@ model = RNet(4,2)
 model.apply(weights_init)
 
 # Load trajectories
-trajectories = pickle.load("/home/silverjoda/SW/baselines/data/Walker2d-v2_rollouts")
+trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Walker2d-v2_rollouts", 'rb'))
 
 # Train model to imitate trajectories
-train_imitation(model, trajectories)
+train_imitation(model, trajectories, 1000)
