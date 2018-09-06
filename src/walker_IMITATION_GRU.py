@@ -23,28 +23,6 @@ import torch.nn as nn
 
 gym_logger.setLevel(logging.CRITICAL)
 
-class Baseline(nn.Module):
-
-    def __init__(self, obs_dim, act_dim):
-        super(Baseline, self).__init__()
-
-        self.fc1 = nn.Linear(obs_dim, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, act_dim)
-
-    def forward(self, x):
-        x = nn.ReLU(self.fc1(x))
-        x = nn.ReLU(self.fc2(x))
-        x = self.fc3(x)
-        return x
-
-    def num_flat_features(self, x):
-        size = x.size()[1:]  # all dimensions except the batch dimension
-        num_features = 1
-        for s in size:
-            num_features *= s
-        return num_features
-
 
 class RNet(nn.Module):
 
@@ -57,25 +35,23 @@ class RNet(nn.Module):
         self.reset()
 
         # Master
-        self.m_rnn = nn.RNNCell(5 + 2 * osc_hid, m_hid)
+        self.m_rnn = nn.GRUCell(5 + 2 * osc_hid, m_hid)
         self.m_out = nn.Linear(m_hid, 2 * osc_hid)
 
         # Hip
-        self.h_rnn = nn.RNNCell(1 + 2 * osc_hid, osc_hid)
+        self.h_rnn = nn.GRUCell(1 + 2 * osc_hid, osc_hid)
         self.h_out = nn.Linear(osc_hid, 1)
 
         # Knee
-        self.k_rnn = nn.RNNCell(1 + 2 * osc_hid, osc_hid)
+        self.k_rnn = nn.GRUCell(1 + 2 * osc_hid, osc_hid)
         self.k_out = nn.Linear(osc_hid, 1)
 
         # Foot
-        self.f_rnn = nn.RNNCell(1 + osc_hid, osc_hid)
+        self.f_rnn = nn.GRUCell(1 + osc_hid, osc_hid)
         self.f_out = nn.Linear(osc_hid, 1)
 
 
     def forward(self, x):
-        #h1, k1, f1, h2, k2, f2, *m_obs = x[0, [2, 3, 4, 5, 6, 7, 0, 1, 8, 9, 10]]
-
 
         h1 = x[:, 2]
         k1 = x[:, 3]
@@ -140,7 +116,7 @@ class RNet(nn.Module):
             num_features *= s
         return num_features
 
-def train_imitation(model,baseline, trajectories, iters):
+def train_imitation(model, trajectories, iters):
     N = len(trajectories)
     obs_dim = len(trajectories[0][0][0])
     act_dim = len(trajectories[0][0][1])
@@ -148,8 +124,7 @@ def train_imitation(model,baseline, trajectories, iters):
     print("Starting training. Obs dim: {}, Act dim: {}".format(obs_dim, act_dim))
 
     lossfun = nn.MSELoss()
-    rnn_optim = torch.optim.Adam(model.parameters(), lr=5e-3)
-    baseline_optim = torch.optim.Adam(model.parameters(), lr=5e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
 
     for i in range(iters):
         # Sample random whole episodes
@@ -158,39 +133,28 @@ def train_imitation(model,baseline, trajectories, iters):
         obs_array = torch.from_numpy(np.array(obs_list, dtype=np.float32))
         act_array = torch.from_numpy(np.array(act_list, dtype=np.float32))
 
-        rnn_pred_list = []
-        baseline_pred_list = []
+        y_pred_list = []
 
         # Rollout
         model.reset()
-        baseline.reset()
-        rnn_optim.zero_grad()
-        baseline_optim.zero_grad()
+        optimizer.zero_grad()
         for obs in obs_array:
-            rnn_pred_list.append(model(obs.unsqueeze(0)))
-            baseline_pred_list.append(model(obs.unsqueeze(0)))
-        rnn_preds = torch.cat(rnn_pred_list, 0)
-        baseline_preds = torch.cat(baseline_pred_list, 0)
+            y_pred_list.append(model(obs.unsqueeze(0)))
+        y_preds = torch.cat(y_pred_list, 0)
 
         # MSE & gradients
-        rnn_loss = lossfun(rnn_preds, act_array)
-        baseline_loss = lossfun(baseline_preds, act_array)
-        rnn_loss.backward( )
-        baseline_loss.backward()
-        rnn_optim.step()
-        baseline_optim.step()
+        loss = lossfun(y_preds, act_array)
+        loss.backward( )
+        optimizer.step()
 
-        print("Iteration: {}/{}, Rnn loss: {}, Baseline loss: {}".format(i, iters, rnn_loss, baseline_loss))
+        print("Iteration: {}/{}, Loss: {}".format(i, iters, loss))
 
 # add the model on top of the convolutional base
 model = RNet(4,2)
 model.apply(weights_init)
 
-baseline = Baseline(17, 6)
-baseline.apply(weights_init)
-
 # Load trajectories
 trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Walker2d-v2_rollouts", 'rb'))
 
 # Train model to imitate trajectories
-train_imitation(model, baseline, trajectories, 1000)
+train_imitation(model, trajectories, 1000)
