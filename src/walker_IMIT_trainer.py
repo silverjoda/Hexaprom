@@ -175,8 +175,10 @@ def train_imitation(model,baseline, trajectories, iters):
         # MSE & gradients
         rnn_loss = lossfun(rnn_preds, act_array)
         baseline_loss = lossfun(baseline_preds, act_array)
-        rnn_loss.backward( )
+
+        rnn_loss.backward()
         baseline_loss.backward()
+
         rnn_optim.step()
         baseline_optim.step()
 
