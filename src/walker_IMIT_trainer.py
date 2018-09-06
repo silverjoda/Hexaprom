@@ -20,6 +20,7 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
+import torch.nn.functional as F
 
 gym_logger.setLevel(logging.CRITICAL)
 
@@ -33,8 +34,8 @@ class Baseline(nn.Module):
         self.fc3 = nn.Linear(84, act_dim)
 
     def forward(self, x):
-        x = nn.ReLU(self.fc1(x))
-        x = nn.ReLU(self.fc2(x))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
 
@@ -149,7 +150,7 @@ def train_imitation(model,baseline, trajectories, iters):
 
     lossfun = nn.MSELoss()
     rnn_optim = torch.optim.Adam(model.parameters(), lr=5e-3)
-    baseline_optim = torch.optim.Adam(model.parameters(), lr=5e-3)
+    baseline_optim = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     for i in range(iters):
         # Sample random whole episodes
@@ -159,18 +160,18 @@ def train_imitation(model,baseline, trajectories, iters):
         act_array = torch.from_numpy(np.array(act_list, dtype=np.float32))
 
         rnn_pred_list = []
-        baseline_pred_list = []
+
 
         # Rollout
         model.reset()
-        baseline.reset()
+
         rnn_optim.zero_grad()
         baseline_optim.zero_grad()
         for obs in obs_array:
             rnn_pred_list.append(model(obs.unsqueeze(0)))
-            baseline_pred_list.append(model(obs.unsqueeze(0)))
+
         rnn_preds = torch.cat(rnn_pred_list, 0)
-        baseline_preds = torch.cat(baseline_pred_list, 0)
+        baseline_preds = baseline(obs_array)
 
         # MSE & gradients
         rnn_loss = lossfun(rnn_preds, act_array)
@@ -184,12 +185,12 @@ def train_imitation(model,baseline, trajectories, iters):
 
         print("Iteration: {}/{}, Rnn loss: {}, Baseline loss: {}".format(i, iters, rnn_loss, baseline_loss))
 
-# add the model on top of the convolutional base
+# Baseline model
+baseline = Baseline(17, 6)
+
+# RNN
 model = RNet(4,2)
 model.apply(weights_init)
-
-baseline = Baseline(17, 6)
-baseline.apply(weights_init)
 
 # Load trajectories
 trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Walker2d-v2_rollouts", 'rb'))
