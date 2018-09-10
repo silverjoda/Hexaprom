@@ -161,7 +161,7 @@ class RNet(nn.Module):
 
 class RNet2(nn.Module):
     def __init__(self, m_hid, osc_hid):
-        super(RNet, self).__init__()
+        super(RNet2, self).__init__()
         self.m_hid = m_hid
         self.osc_hid = osc_hid
 
@@ -175,20 +175,32 @@ class RNet2(nn.Module):
         # Hip
         self.h_rnn1 = nn.GRUCell(1 + 2 * osc_hid, osc_hid)
         self.h_rnn2 = nn.GRUCell(1 + 2 * osc_hid, osc_hid)
-        self.h_out1 = nn.Linear(osc_hid, 1 + 2 * osc_hid)
-        self.h_out2 = nn.Linear(osc_hid, 1 + 2 * osc_hid)
+        self.h_out1 = nn.Linear(osc_hid, 1)
+        self.h_out2 = nn.Linear(osc_hid, 1)
+        self.h_out1_down = nn.Linear(osc_hid, osc_hid)
+        self.h_out2_down = nn.Linear(osc_hid, osc_hid)
+        self.h_out1_up = nn.Linear(osc_hid, osc_hid)
+        self.h_out2_up = nn.Linear(osc_hid, osc_hid)
 
         # Knee
         self.k_rnn1 = nn.GRUCell(1 + 2 * osc_hid, osc_hid)
         self.k_rnn2 = nn.GRUCell(1 + 2 * osc_hid, osc_hid)
-        self.k_out1 = nn.Linear(osc_hid, 1 + 2 * osc_hid)
-        self.k_out2 = nn.Linear(osc_hid, 1 + 2 * osc_hid)
+        self.k_out1 = nn.Linear(osc_hid, 1)
+        self.k_out2 = nn.Linear(osc_hid, 1)
+        self.k_out1_down = nn.Linear(osc_hid, osc_hid)
+        self.k_out2_down = nn.Linear(osc_hid, osc_hid)
+        self.k_out1_up = nn.Linear(osc_hid, osc_hid)
+        self.k_out2_up = nn.Linear(osc_hid, osc_hid)
 
         # Foot
         self.f_rnn1 = nn.GRUCell(1 + osc_hid, osc_hid)
         self.f_rnn2 = nn.GRUCell(1 + osc_hid, osc_hid)
-        self.f_out1 = nn.Linear(osc_hid, 1 + 2 * osc_hid)
-        self.f_out2 = nn.Linear(osc_hid, 1 + 2 * osc_hid)
+        self.f_out1 = nn.Linear(osc_hid, 1)
+        self.f_out2 = nn.Linear(osc_hid, 1)
+        self.f_out1_down = nn.Linear(osc_hid, osc_hid)
+        self.f_out2_down = nn.Linear(osc_hid, osc_hid)
+        self.f_out1_up = nn.Linear(osc_hid, osc_hid)
+        self.f_out2_up = nn.Linear(osc_hid, osc_hid)
 
     def normalize(self, tensor):
         tensor_norm = torch.norm(tensor, p=2, dim=1).detach()
@@ -208,17 +220,17 @@ class RNet2(nn.Module):
         f2 = x[:, 7]
         m_obs = x[:, [0, 1, 8, 9, 10]]
 
-        self.m_s = self.m_rnn(self.normalize(torch.cat([m_obs , self.h1_s , self.h2_s], 1)), self.m_s)
+        self.m_s = self.m_rnn(self.identity(torch.cat([m_obs , self.h1_up , self.h2_up], 1)), self.m_s)
         out_m = self.m_out(self.m_s)
 
-        h1_s = self.h_rnn1(self.normalize(torch.cat([h1.unsqueeze(0), out_m[:, :self.osc_hid], self.k1_s], 1)), self.h1_s)
-        h2_s = self.h_rnn2(self.normalize(torch.cat([h2.unsqueeze(0), out_m[:, self.osc_hid:], self.k2_s], 1)), self.h2_s)
+        h1_s = self.h_rnn1(self.identity(torch.cat([h1.unsqueeze(0), out_m[:, :self.osc_hid], self.k1_up], 1)), self.h1_s)
+        h2_s = self.h_rnn2(self.identity(torch.cat([h2.unsqueeze(0), out_m[:, self.osc_hid:], self.k2_up], 1)), self.h2_s)
 
-        k1_s = self.k_rnn1(self.normalize(torch.cat([k1.unsqueeze(0), self.h1_s, self.f1_s], 1)), self.k1_s)
-        k2_s = self.k_rnn2(self.normalize(torch.cat([k2.unsqueeze(0), self.h2_s, self.f2_s], 1)), self.k2_s)
+        k1_s = self.k_rnn1(self.identity(torch.cat([k1.unsqueeze(0), self.h1_down, self.f1_up], 1)), self.k1_s)
+        k2_s = self.k_rnn2(self.identity(torch.cat([k2.unsqueeze(0), self.h2_down, self.f2_up], 1)), self.k2_s)
 
-        f1_s = self.f_rnn1(self.normalize(torch.cat([f1.unsqueeze(0), self.k1_s], 1)), self.f1_s)
-        f2_s = self.f_rnn2(self.normalize(torch.cat([f2.unsqueeze(0), self.k2_s], 1)), self.f2_s)
+        f1_s = self.f_rnn1(self.identity(torch.cat([f1.unsqueeze(0), self.k1_down], 1)), self.f1_s)
+        f2_s = self.f_rnn2(self.identity(torch.cat([f2.unsqueeze(0), self.k2_down], 1)), self.f2_s)
 
         self.h1_s = self.identity(h1_s)
         self.h2_s = self.identity(h2_s)
@@ -229,12 +241,39 @@ class RNet2(nn.Module):
 
         out_h1 = self.h_out1(self.h1_s)
         out_h2 = self.h_out2(self.h2_s)
+        h1_down = self.h_out1_down(self.h1_s)
+        h1_up = self.h_out1_up(self.h1_s)
+        h2_down = self.h_out2_down(self.h2_s)
+        h2_up = self.h_out2_up(self.h2_s)
 
         out_k1 = self.k_out1(self.k1_s)
         out_k2 = self.k_out2(self.k2_s)
+        k1_down = self.k_out1_down(self.k1_s)
+        k1_up = self.k_out1_up(self.k1_s)
+        k2_down = self.k_out2_down(self.k2_s)
+        k2_up = self.k_out2_up(self.k2_s)
 
         out_f1 = self.f_out1(self.f1_s)
         out_f2 = self.f_out2(self.f2_s)
+        f1_down = self.f_out1_down(self.f1_s)
+        f1_up = self.f_out1_up(self.f1_s)
+        f2_down = self.f_out2_down(self.f2_s)
+        f2_up = self.f_out2_up(self.f2_s)
+
+        self.h1_down = h1_down
+        self.h2_down = h2_down
+        self.h1_up = h1_up
+        self.h2_up = h2_up
+
+        self.k1_down = k1_down
+        self.k2_down = k2_down
+        self.k1_up = k1_up
+        self.k2_up = k2_up
+
+        self.f1_down = f1_down
+        self.f2_down = f2_down
+        self.f1_up = f1_up
+        self.f2_up = f2_up
 
         action = torch.cat([out_h1, out_k1, out_f1, out_h2, out_k2, out_f2], 1)
 
@@ -248,15 +287,30 @@ class RNet2(nn.Module):
 
         # Hip
         self.h1_s = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.h1_up = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.h1_down = Variable(torch.zeros(1, self.osc_hid)).float()
+
         self.h2_s = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.h2_up = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.h2_down = Variable(torch.zeros(1, self.osc_hid)).float()
 
         # Knee
         self.k1_s = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.k1_up = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.k1_down = Variable(torch.zeros(1, self.osc_hid)).float()
+
         self.k2_s = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.k2_up = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.k2_down = Variable(torch.zeros(1, self.osc_hid)).float()
 
         # Foot
         self.f1_s = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.f1_up = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.f1_down = Variable(torch.zeros(1, self.osc_hid)).float()
+
         self.f2_s = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.f2_up = Variable(torch.zeros(1, self.osc_hid)).float()
+        self.f2_down = Variable(torch.zeros(1, self.osc_hid)).float()
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension
@@ -264,7 +318,6 @@ class RNet2(nn.Module):
         for s in size:
             num_features *= s
         return num_features
-
 
 
 def evaluate(model, env, iters):
@@ -319,7 +372,6 @@ def train_imitation(model,baseline, trajectories, iters):
         baseline_preds = baseline(obs_array)
 
         # MSE & gradients
-        rnn_loss = 0
         rnn_loss = lossfun(rnn_preds, act_array)
         baseline_loss = lossfun(baseline_preds, act_array)
 
@@ -338,7 +390,7 @@ def train_imitation(model,baseline, trajectories, iters):
 baseline = Baseline(17, 6)
 
 # RNN
-model = RNet(8,4)
+model = RNet2(4,2)
 model.apply(weights_init)
 
 # Load trajectories
@@ -350,7 +402,7 @@ trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Walker2d-v2_
 
 try:
     # Train model to imitate trajectories
-    train_imitation(model, baseline, trajectories, 500)
+    train_imitation(model, baseline, trajectories, 300)
 except KeyboardInterrupt:
     print("User interrupted process.")
 
