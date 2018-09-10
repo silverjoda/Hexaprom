@@ -402,16 +402,16 @@ trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Walker2d-v2_
 
 try:
     # Train model to imitate trajectories
-    train_imitation(model, baseline, trajectories, 300)
+    train_imitation(model, baseline, trajectories, 0)
 except KeyboardInterrupt:
     print("User interrupted process.")
 
 env = gym.make("Walker2d-v2")
 
-print("Evaluating baseline")
-baseline = torch.load('baseline_imit.pt')
-evaluate(baseline, env, 5)
-time.sleep(2)
+#print("Evaluating baseline")
+#baseline = torch.load('baseline_imit.pt')
+#evaluate(baseline, env, 5)
+#time.sleep(1)
 print("Evaluating RNN")
 model = torch.load('rnn_imit.pt')
 evaluate(model, env, 1000)
