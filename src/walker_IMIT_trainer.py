@@ -197,8 +197,6 @@ class RNet2(nn.Module):
         self.f_rnn2 = nn.GRUCell(1 + osc_hid, osc_hid)
         self.f_out1 = nn.Linear(osc_hid, 1)
         self.f_out2 = nn.Linear(osc_hid, 1)
-        self.f_out1_down = nn.Linear(osc_hid, osc_hid)
-        self.f_out2_down = nn.Linear(osc_hid, osc_hid)
         self.f_out1_up = nn.Linear(osc_hid, osc_hid)
         self.f_out2_up = nn.Linear(osc_hid, osc_hid)
 
@@ -255,9 +253,7 @@ class RNet2(nn.Module):
 
         out_f1 = self.f_out1(self.f1_s)
         out_f2 = self.f_out2(self.f2_s)
-        f1_down = self.f_out1_down(self.f1_s)
         f1_up = self.f_out1_up(self.f1_s)
-        f2_down = self.f_out2_down(self.f2_s)
         f2_up = self.f_out2_up(self.f2_s)
 
         self.h1_down = h1_down
@@ -270,8 +266,6 @@ class RNet2(nn.Module):
         self.k1_up = k1_up
         self.k2_up = k2_up
 
-        self.f1_down = f1_down
-        self.f2_down = f2_down
         self.f1_up = f1_up
         self.f2_up = f2_up
 
@@ -306,11 +300,10 @@ class RNet2(nn.Module):
         # Foot
         self.f1_s = Variable(torch.zeros(1, self.osc_hid)).float()
         self.f1_up = Variable(torch.zeros(1, self.osc_hid)).float()
-        self.f1_down = Variable(torch.zeros(1, self.osc_hid)).float()
 
         self.f2_s = Variable(torch.zeros(1, self.osc_hid)).float()
         self.f2_up = Variable(torch.zeros(1, self.osc_hid)).float()
-        self.f2_down = Variable(torch.zeros(1, self.osc_hid)).float()
+
 
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension
