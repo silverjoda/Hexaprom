@@ -465,23 +465,91 @@ class PNet(nn.Module):
         self.f_up_l2 = nn.Linear(2, 2)
         self.k_up_l1 = nn.Linear(4, 4)
         self.k_up_l2 = nn.Linear(4, 4)
-        self.h_up_l1 = nn.Linear(6, 4)
-        self.h_up_l2 = nn.Linear(4, 4)
+        self.h_up_l1 = nn.Linear(6, 6)
+        self.h_up_l2 = nn.Linear(6, 6)
 
-        self.m_down_l1 = nn.Linear(13, 8)
-        self.m_down_l2_1 = nn.Linear(8, 4)
-        self.m_down_l2_2 = nn.Linear(8, 4)
-        self.k_down_l1 = nn.Linear(4, 4)
+        self.m_down_l1 = nn.Linear(17, 16)
+        self.m_down_l2 = nn.Linear(16, 16)
+        self.m_down_l2_1 = nn.Linear(16, 6)
+        self.m_down_l2_2 = nn.Linear(16, 6)
+        self.h_down_l1 = nn.Linear(6, 6)
+        self.h_down_l2 = nn.Linear(6, 6)
+        self.k_down_l1 = nn.Linear(6, 4)
         self.k_down_l2 = nn.Linear(4, 4)
-        self.h_down_l1 = nn.Linear(4, 4)
-        self.h_down_l2 = nn.Linear(4, 4)
 
-        self.h_act_l1 = nn.Linear(4, 2)
-        self.h_act_l2 = nn.Linear(2, 1)
-        self.k_act_l1 = nn.Linear(4, 2)
-        self.k_act_l2 = nn.Linear(2, 1)
-        self.f_act_l1 = nn.Linear(4, 2)
-        self.f_act_l2 = nn.Linear(2, 1)
+        self.h_act_l1 = nn.Linear(8, 4)
+        self.h_act_l2 = nn.Linear(4, 1)
+        self.k_act_l1 = nn.Linear(8, 4)
+        self.k_act_l2 = nn.Linear(4, 1)
+        self.f_act_l1 = nn.Linear(6, 4)
+        self.f_act_l2 = nn.Linear(4, 1)
+
+        torch.nn.init.xavier_uniform_(self.f_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.f_up_l2.weight)
+        torch.nn.init.xavier_uniform_(self.k_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.k_up_l2.weight)
+        torch.nn.init.xavier_uniform_(self.h_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.h_up_l2.weight)
+
+        torch.nn.init.xavier_uniform_(self.m_down_l1.weight)
+        torch.nn.init.xavier_uniform_(self.m_down_l2.weight)
+        torch.nn.init.xavier_uniform_(self.m_down_l2_1.weight)
+        torch.nn.init.xavier_uniform_(self.m_down_l2_2.weight)
+        torch.nn.init.xavier_uniform_(self.k_down_l1.weight)
+        torch.nn.init.xavier_uniform_(self.k_down_l2.weight)
+        torch.nn.init.xavier_uniform_(self.h_down_l1.weight)
+        torch.nn.init.xavier_uniform_(self.h_down_l2.weight)
+
+        torch.nn.init.xavier_uniform_(self.h_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.h_act_l2.weight)
+        torch.nn.init.xavier_uniform_(self.k_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.k_act_l2.weight)
+        torch.nn.init.xavier_uniform_(self.f_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.f_act_l2.weight)
+
+        # ---
+
+
+        self.xf_up_l1 = nn.Linear(2, 2)
+        self.xf_up_l2 = nn.Linear(2, 2)
+        self.xk_up_l1 = nn.Linear(4, 4)
+        self.xk_up_l2 = nn.Linear(4, 4)
+        self.xh_up_l1 = nn.Linear(6, 6)
+        self.xh_up_l2 = nn.Linear(6, 6)
+
+        self.xh_down_l1 = nn.Linear(6, 6)
+        self.xh_down_l2 = nn.Linear(6, 6)
+        self.xk_down_l1 = nn.Linear(6, 4)
+        self.xk_down_l2 = nn.Linear(4, 4)
+
+        self.xh_act_l1 = nn.Linear(8, 4)
+        self.xh_act_l2 = nn.Linear(4, 1)
+        self.xk_act_l1 = nn.Linear(8, 4)
+        self.xk_act_l2 = nn.Linear(4, 1)
+        self.xf_act_l1 = nn.Linear(6, 4)
+        self.xf_act_l2 = nn.Linear(4, 1)
+
+
+        torch.nn.init.xavier_uniform_(self.xf_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xf_up_l2.weight)
+        torch.nn.init.xavier_uniform_(self.xk_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xk_up_l2.weight)
+        torch.nn.init.xavier_uniform_(self.xh_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xh_up_l2.weight)
+
+        torch.nn.init.xavier_uniform_(self.xk_down_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xk_down_l2.weight)
+        torch.nn.init.xavier_uniform_(self.xh_down_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xh_down_l2.weight)
+
+        torch.nn.init.xavier_uniform_(self.xh_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xh_act_l2.weight)
+        torch.nn.init.xavier_uniform_(self.xk_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xk_act_l2.weight)
+        torch.nn.init.xavier_uniform_(self.xf_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xf_act_l2.weight)
+
+
 
     def forward(self, x):
 
@@ -503,27 +571,27 @@ class PNet(nn.Module):
         k_up_1 = F.relu(self.k_up_l2(F.relu(self.k_up_l1(torch.cat([k1, k1d, f_up_1], 1)))))
         h_up_1 = F.relu(self.h_up_l2(F.relu(self.h_up_l1(torch.cat([h1, h1d, k_up_1], 1)))))
 
-        f_up_2 = F.relu(self.f_up_l2(F.relu(self.f_up_l1(torch.cat([f2, f2d], 1)))))
-        k_up_2 = F.relu(self.k_up_l2(F.relu(self.k_up_l1(torch.cat([k2, k2d, f_up_2], 1)))))
-        h_up_2 = F.relu(self.h_up_l2(F.relu(self.h_up_l1(torch.cat([h2, h2d, k_up_2], 1)))))
+        f_up_2 = F.relu(self.xf_up_l2(F.relu(self.xf_up_l1(torch.cat([f2, f2d], 1)))))
+        k_up_2 = F.relu(self.xk_up_l2(F.relu(self.xk_up_l1(torch.cat([k2, k2d, f_up_2], 1)))))
+        h_up_2 = F.relu(self.xh_up_l2(F.relu(self.xh_up_l1(torch.cat([h2, h2d, k_up_2], 1)))))
 
-        m_down = F.relu(self.m_down_l1(torch.cat([m_obs, h_up_1, h_up_2], 1)))
+        m_down = F.relu(self.m_down_l2(F.relu(self.m_down_l1(torch.cat([m_obs, h_up_1, h_up_2], 1)))))
         m_down_1 = F.relu(self.m_down_l2_1(m_down))
         m_down_2 = F.relu(self.m_down_l2_2(m_down))
 
         h_down_1 = F.relu(self.h_down_l2(F.tanh(self.h_down_l1(m_down_1))))
         k_down_1 = F.relu(self.k_down_l2(F.tanh(self.k_down_l1(h_down_1))))
 
-        h_down_2 = F.relu(self.h_down_l2(F.tanh(self.h_down_l1(m_down_2))))
-        k_down_2 = F.relu(self.k_down_l2(F.tanh(self.k_down_l1(h_down_2))))
+        h_down_2 = F.relu(self.xh_down_l2(F.tanh(self.xh_down_l1(m_down_2))))
+        k_down_2 = F.relu(self.xk_down_l2(F.tanh(self.xk_down_l1(h_down_2))))
 
-        h_act_1 = self.h_act_l2(F.relu(self.h_act_l1(m_down_1)))
-        k_act_1 = self.k_act_l2(F.relu(self.k_act_l1(h_down_1)))
-        f_act_1 = self.f_act_l2(F.relu(self.f_act_l1(k_down_1)))
+        h_act_1 = self.h_act_l2(F.relu(self.h_act_l1(torch.cat([h1, h1d, m_down_1], 1))))
+        k_act_1 = self.k_act_l2(F.relu(self.k_act_l1(torch.cat([k1, k1d, h_down_1], 1))))
+        f_act_1 = self.f_act_l2(F.relu(self.f_act_l1(torch.cat([f1, f1d, k_down_1], 1))))
 
-        h_act_2 = self.h_act_l2(F.relu(self.h_act_l1(m_down_2)))
-        k_act_2 = self.k_act_l2(F.relu(self.k_act_l1(h_down_2)))
-        f_act_2 = self.f_act_l2(F.relu(self.f_act_l1(k_down_2)))
+        h_act_2 = self.xh_act_l2(F.relu(self.xh_act_l1(torch.cat([h2, h2d, m_down_2], 1))))
+        k_act_2 = self.xk_act_l2(F.relu(self.xk_act_l1(torch.cat([k2, k2d, h_down_2], 1))))
+        f_act_2 = self.xf_act_l2(F.relu(self.xf_act_l1(torch.cat([f2, f2d, k_down_2], 1))))
 
         act = torch.cat([h_act_1, f_act_1, k_act_1, h_act_2, k_act_2, f_act_2], 1)
 
@@ -538,6 +606,151 @@ class PNet(nn.Module):
 
     def reset(self):
         pass
+
+
+class PNet2(nn.Module):
+
+    def __init__(self):
+        super(PNet2, self).__init__()
+
+        self.f_up_l1 = nn.Linear(2, 2)
+        self.k_up_l1 = nn.Linear(4, 4)
+        self.h_up_l1 = nn.Linear(6, 6)
+
+        self.m_down_l1 = nn.Linear(17, 32)
+        self.m_down_l2 = nn.Linear(32, 16)
+        self.m_down_l2_1 = nn.Linear(16, 6)
+        self.m_down_l2_2 = nn.Linear(16, 6)
+        self.h_down_l1 = nn.Linear(6, 6)
+        self.k_down_l1 = nn.Linear(6, 4)
+
+        self.h_act_l1 = nn.Linear(8, 4)
+        self.k_act_l1 = nn.Linear(8, 4)
+        self.f_act_l1 = nn.Linear(6, 4)
+
+        torch.nn.init.xavier_uniform_(self.f_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.f_up_l2.weight)
+        torch.nn.init.xavier_uniform_(self.k_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.k_up_l2.weight)
+        torch.nn.init.xavier_uniform_(self.h_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.h_up_l2.weight)
+
+        torch.nn.init.xavier_uniform_(self.m_down_l1.weight)
+        torch.nn.init.xavier_uniform_(self.m_down_l2.weight)
+        torch.nn.init.xavier_uniform_(self.m_down_l2_1.weight)
+        torch.nn.init.xavier_uniform_(self.m_down_l2_2.weight)
+        torch.nn.init.xavier_uniform_(self.k_down_l1.weight)
+        torch.nn.init.xavier_uniform_(self.k_down_l2.weight)
+        torch.nn.init.xavier_uniform_(self.h_down_l1.weight)
+        torch.nn.init.xavier_uniform_(self.h_down_l2.weight)
+
+        torch.nn.init.xavier_uniform_(self.h_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.h_act_l2.weight)
+        torch.nn.init.xavier_uniform_(self.k_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.k_act_l2.weight)
+        torch.nn.init.xavier_uniform_(self.f_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.f_act_l2.weight)
+
+        # ---
+
+
+        self.xf_up_l1 = nn.Linear(2, 2)
+        self.xf_up_l2 = nn.Linear(2, 2)
+        self.xk_up_l1 = nn.Linear(4, 4)
+        self.xk_up_l2 = nn.Linear(4, 4)
+        self.xh_up_l1 = nn.Linear(6, 6)
+        self.xh_up_l2 = nn.Linear(6, 6)
+
+        self.xh_down_l1 = nn.Linear(6, 6)
+        self.xh_down_l2 = nn.Linear(6, 6)
+        self.xk_down_l1 = nn.Linear(6, 4)
+        self.xk_down_l2 = nn.Linear(4, 4)
+
+        self.xh_act_l1 = nn.Linear(8, 4)
+        self.xh_act_l2 = nn.Linear(4, 1)
+        self.xk_act_l1 = nn.Linear(8, 4)
+        self.xk_act_l2 = nn.Linear(4, 1)
+        self.xf_act_l1 = nn.Linear(6, 4)
+        self.xf_act_l2 = nn.Linear(4, 1)
+
+
+        torch.nn.init.xavier_uniform_(self.xf_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xf_up_l2.weight)
+        torch.nn.init.xavier_uniform_(self.xk_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xk_up_l2.weight)
+        torch.nn.init.xavier_uniform_(self.xh_up_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xh_up_l2.weight)
+
+        torch.nn.init.xavier_uniform_(self.xk_down_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xk_down_l2.weight)
+        torch.nn.init.xavier_uniform_(self.xh_down_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xh_down_l2.weight)
+
+        torch.nn.init.xavier_uniform_(self.xh_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xh_act_l2.weight)
+        torch.nn.init.xavier_uniform_(self.xk_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xk_act_l2.weight)
+        torch.nn.init.xavier_uniform_(self.xf_act_l1.weight)
+        torch.nn.init.xavier_uniform_(self.xf_act_l2.weight)
+
+
+
+    def forward(self, x):
+
+        h1 = x[:, 2].unsqueeze(1)
+        k1 = x[:, 3].unsqueeze(1)
+        f1 = x[:, 4].unsqueeze(1)
+        h2 = x[:, 5].unsqueeze(1)
+        k2 = x[:, 6].unsqueeze(1)
+        f2 = x[:, 7].unsqueeze(1)
+        h1d = x[:, 11].unsqueeze(1)
+        k1d = x[:, 12].unsqueeze(1)
+        f1d = x[:, 13].unsqueeze(1)
+        h2d = x[:, 14].unsqueeze(1)
+        k2d = x[:, 15].unsqueeze(1)
+        f2d = x[:, 16].unsqueeze(1)
+        m_obs = x[:, [0, 1, 8, 9, 10]]
+
+        f_up_1 = F.relu(self.f_up_l2(F.relu(self.f_up_l1(torch.cat([f1, f1d], 1)))))
+        k_up_1 = F.relu(self.k_up_l2(F.relu(self.k_up_l1(torch.cat([k1, k1d, f_up_1], 1)))))
+        h_up_1 = F.relu(self.h_up_l2(F.relu(self.h_up_l1(torch.cat([h1, h1d, k_up_1], 1)))))
+
+        f_up_2 = F.relu(self.xf_up_l2(F.relu(self.xf_up_l1(torch.cat([f2, f2d], 1)))))
+        k_up_2 = F.relu(self.xk_up_l2(F.relu(self.xk_up_l1(torch.cat([k2, k2d, f_up_2], 1)))))
+        h_up_2 = F.relu(self.xh_up_l2(F.relu(self.xh_up_l1(torch.cat([h2, h2d, k_up_2], 1)))))
+
+        m_down = F.relu(self.m_down_l2(F.relu(self.m_down_l1(torch.cat([m_obs, h_up_1, h_up_2], 1)))))
+        m_down_1 = F.relu(self.m_down_l2_1(m_down))
+        m_down_2 = F.relu(self.m_down_l2_2(m_down))
+
+        h_down_1 = F.relu(self.h_down_l2(F.tanh(self.h_down_l1(m_down_1))))
+        k_down_1 = F.relu(self.k_down_l2(F.tanh(self.k_down_l1(h_down_1))))
+
+        h_down_2 = F.relu(self.xh_down_l2(F.tanh(self.xh_down_l1(m_down_2))))
+        k_down_2 = F.relu(self.xk_down_l2(F.tanh(self.xk_down_l1(h_down_2))))
+
+        h_act_1 = self.h_act_l2(F.relu(self.h_act_l1(torch.cat([h1, h1d, m_down_1], 1))))
+        k_act_1 = self.k_act_l2(F.relu(self.k_act_l1(torch.cat([k1, k1d, h_down_1], 1))))
+        f_act_1 = self.f_act_l2(F.relu(self.f_act_l1(torch.cat([f1, f1d, k_down_1], 1))))
+
+        h_act_2 = self.xh_act_l2(F.relu(self.xh_act_l1(torch.cat([h2, h2d, m_down_2], 1))))
+        k_act_2 = self.xk_act_l2(F.relu(self.xk_act_l1(torch.cat([k2, k2d, h_down_2], 1))))
+        f_act_2 = self.xf_act_l2(F.relu(self.xf_act_l1(torch.cat([f2, f2d, k_down_2], 1))))
+
+        act = torch.cat([h_act_1, f_act_1, k_act_1, h_act_2, k_act_2, f_act_2], 1)
+
+        return act
+
+    def num_flat_features(self, x):
+        size = x.size()[1:]  # all dimensions except the batch dimension
+        num_features = 1
+        for s in size:
+            num_features *= s
+        return num_features
+
+    def reset(self):
+        pass
+
 
 def evaluate(model, env, iters):
     print("Starting visual evaluation")
@@ -567,19 +780,13 @@ def train_imitation(model,baseline, trajectories, iters):
     print("Starting training. Obs dim: {}, Act dim: {}".format(obs_dim, act_dim))
 
     lossfun = nn.MSELoss()
-    rnn_optim = torch.optim.Adam(model.parameters(), lr=3e-3)
+    rnn_optim = torch.optim.Adam(model.parameters(), lr=7e-3)
     baseline_optim = torch.optim.Adam(baseline.parameters(), lr=3e-3)
 
-    maxlen = 500
 
     for i in range(iters):
         # Sample random whole episodes
         rand_episode = trajectories[np.random.randint(0, N)]
-
-        # if len(rand_episode) > maxlen:
-        #     N = maxlen
-        # else:
-        #     N = len(rand_episode)
 
         obs_list, act_list = zip(*rand_episode)
         obs_array = torch.from_numpy(np.array(obs_list, dtype=np.float32))
@@ -591,25 +798,26 @@ def train_imitation(model,baseline, trajectories, iters):
         model.reset()
 
         rnn_optim.zero_grad()
-        baseline_optim.zero_grad()
+        #baseline_optim.zero_grad()
         # for obs in obs_array:
         #     rnn_pred_list.append(model(obs.unsqueeze(0)))
 
         #rnn_preds = torch.cat(rnn_pred_list, 0)
         rnn_preds = model(obs_array)
-        baseline_preds = baseline(obs_array)
+        #baseline_preds = baseline(obs_array)
 
         # MSE & gradients
         rnn_loss = lossfun(rnn_preds, act_array)
-        baseline_loss = lossfun(baseline_preds, act_array)
+        #baseline_loss = lossfun(baseline_preds, act_array)
 
         rnn_loss.backward()
-        baseline_loss.backward()
+        #baseline_loss.backward()
 
         rnn_optim.step()
-        baseline_optim.step()
+        #baseline_optim.step()
 
-        print("Iteration: {}/{}, Rnn loss: {}, Baseline loss: {}".format(i, iters, rnn_loss, baseline_loss))
+        if i % 10 == 0:
+            print("Iteration: {}/{}, Rnn loss: {}, Baseline loss: {}".format(i, iters, rnn_loss, 0.13))
 
     torch.save(baseline, 'baseline_imit.pt')
     torch.save(model, 'rnn_imit.pt')
@@ -624,25 +832,21 @@ baseline = Baseline(17, 6)
 model = PNet()
 
 # Load trajectories
-trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Walker2d-v2_rollouts_2", 'rb'))
+trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Walker2d-v2_rollouts_0", 'rb'))
 
 # TODO: VISUALIZE RNN HIDDEN STATE VALUES AND FIX HIDDEN STATE BLOW UP IF NECESSARY
 # TODO: PERFORM ROLLOUTS OF TRAINED BASELINES AND TRAINED RNN MODELS TO SEE HOW THE RNN DOES
 
 print("Model params: {}, baseline params: {}".format(count_parameters(model), count_parameters(baseline)))
 
-try:
-    # Train model to imitate trajectories
-    train_imitation(model, baseline, trajectories, 2000)
-except KeyboardInterrupt:
-    print("User interrupted process.")
+train_imitation(model, baseline, trajectories, 5000)
 
 env = gym.make("Walker2d-v2")
 
-print("Evaluating baseline")
-baseline = torch.load('baseline_imit.pt')
-evaluate(baseline, env, 10)
-time.sleep(1)
+#print("Evaluating baseline")
+#baseline = torch.load('baseline_imit.pt')
+#evaluate(baseline, env, 10)
+#time.sleep(1)
 print("Evaluating Model")
 #model = torch.load('rnn_imit.pt')
 evaluate(model, env, 10)
