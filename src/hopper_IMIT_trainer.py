@@ -18,8 +18,8 @@ class Baseline(nn.Module):
     def __init__(self, obs_dim, act_dim):
         super(Baseline, self).__init__()
 
-        self.fc1 = nn.Linear(obs_dim, 32)
-        self.fc2 = nn.Linear(32, 32)
+        self.fc1 = nn.Linear(obs_dim, 64)
+        self.fc2 = nn.Linear(64, 32)
         self.fc3 = nn.Linear(32, act_dim)
 
     def forward(self, x):
@@ -61,9 +61,9 @@ class PNet(nn.Module):
         self.k_down_l1 = nn.Linear(4, 2)
         self.k_down_l2 = nn.Linear(2, 2)
 
-        self.h_act_l1 = nn.Linear(12, 4)
+        self.h_act_l1 = nn.Linear(8, 4)
         self.h_act_l2 = nn.Linear(4, 1)
-        self.k_act_l1 = nn.Linear(8, 4)
+        self.k_act_l1 = nn.Linear(6, 4)
         self.k_act_l2 = nn.Linear(4, 1)
         self.f_act_l1 = nn.Linear(4, 4)
         self.f_act_l2 = nn.Linear(4, 1)
@@ -111,8 +111,8 @@ class PNet(nn.Module):
         h_down = F.relu(self.h_down_l2(F.relu(self.h_down_l1(m_down))))
         k_down = F.relu(self.k_down_l2(F.relu(self.k_down_l1(h_down))))
 
-        h_act = self.h_act_l2(F.relu(self.h_act_l1(torch.cat([h, hd, m_down, k_up], 1))))
-        k_act = self.k_act_l2(F.relu(self.k_act_l1(torch.cat([k, kd, h_down, f_up], 1))))
+        h_act = self.h_act_l2(F.relu(self.h_act_l1(torch.cat([h, hd, m_down], 1))))
+        k_act = self.k_act_l2(F.relu(self.k_act_l1(torch.cat([k, kd, h_down], 1))))
         f_act = self.f_act_l2(F.relu(self.f_act_l1(torch.cat([f, fd, k_down], 1))))
 
         act = torch.cat([h_act, f_act, k_act], 1)
@@ -197,9 +197,6 @@ model = PNet()
 
 # Load trajectories
 trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Hopper-v2_rollouts_0", 'rb'))
-
-# TODO: VISUALIZE RNN HIDDEN STATE VALUES AND FIX HIDDEN STATE BLOW UP IF NECESSARY
-# TODO: PERFORM ROLLOUTS OF TRAINED BASELINES AND TRAINED RNN MODELS TO SEE HOW THE RNN DOES
 
 print("Model params: {}, baseline params: {}".format(count_parameters(model), count_parameters(baseline)))
 
