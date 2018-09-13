@@ -34,7 +34,8 @@ def f(w):
         h2_up = np.tanh(np.matmul([h2, f2], wdist.get_w('w_up', w)) + wdist.get_w('b_up', w))
         h3_up = np.tanh(np.matmul([h3, f3], wdist.get_w('w_up', w)) + wdist.get_w('b_up', w))
 
-        m_down = np.tanh(np.matmul(np.concatenate([h0_up, h1_up, h2_up, h3_up, z], 0), wdist.get_w('w_m_down', w)) + wdist.get_w('b_m_down', w))
+        m_down = np.tanh(np.matmul(np.concatenate([h0_up, h1_up, h2_up, h3_up, z], 0), wdist.get_w('w_m_down1', w)) + wdist.get_w('b_m_down1', w))
+        m_down = np.tanh(np.matmul(m_down, wdist.get_w('w_m_down2', w)) + wdist.get_w('b_m_down2', w))
 
         h0_down = np.tanh(np.matmul(m_down[0:2], wdist.get_w('w_h_down', w)) + wdist.get_w('b_h_down', w))
         h1_down = np.tanh(np.matmul(m_down[2:4], wdist.get_w('w_h_down', w)) + wdist.get_w('b_h_down', w))
@@ -84,8 +85,10 @@ wdist = Wdist()
 wdist.addW((2, 2), 'w_up')
 wdist.addW((2,), 'b_up')
 
-wdist.addW((9, 8), 'w_m_down')
-wdist.addW((8,), 'b_m_down')
+wdist.addW((9, 4), 'w_m_down1')
+wdist.addW((4,), 'b_m_down1')
+wdist.addW((4, 8), 'w_m_down2')
+wdist.addW((8,), 'b_m_down2')
 
 wdist.addW((2, 2), 'w_h_down')
 wdist.addW((2,), 'b_h_down')
