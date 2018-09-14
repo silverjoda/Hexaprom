@@ -29,12 +29,12 @@ def f(w):
             if i == 0:
                 nt = [0] + prev_torques[1:2]
             elif i == N - 1:
-                nt = prev_torques[1:2] + [0]
+                nt = prev_torques[N-1:N] + [0]
             else:
                 nt = prev_torques[i-1:i] + prev_torques[i+1:i+2]
             obs = list(env_obs[i:i+1]) + nt
-            l1 = np.tanh(np.matmul(obs, wdist.get_w('w_{}_l1'.format(i), w)) + wdist.get_w('b_{}_l1'.format(i), w))
-            t0 = np.tanh(np.matmul(l1, wdist.get_w('w_{}_l2'.format(i), w)) + wdist.get_w('b_{}_l2'.format(i), w))
+            l1 = np.tanh(np.matmul(obs, wdist.get_w('w_l1', w)) + wdist.get_w('b_l1', w))
+            t0 = np.tanh(np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w))
             torques.append(t0)
 
         # -------------
@@ -65,16 +65,15 @@ actfun = lambda x:x
 
 print("afun: {}".format(afun))
 
-# Master node
-for i in range(N):
-    wdist.addW((3, 2), 'w_{}_l0'.format(i))
-    wdist.addW((2,), 'b_{}_l0'.format(i))
+wdist.addW((3, 3), 'w_l1')
+wdist.addW((3,), 'b_l1')
 
-    wdist.addW((2, 1), 'w_{}_l1'.format(i))
-    wdist.addW((1,), 'b_{}_l1'.format(i))
+wdist.addW((3, 1), 'w_l2')
+wdist.addW((1,), 'b_l2')
 
 N_weights = wdist.get_N()
-w = np.random.randn(N_weights)
+print("Nweights: {}".format(N_weights))
+w = np.random.randn(N_weights) * 0.5
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
 
