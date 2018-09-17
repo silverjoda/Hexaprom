@@ -114,10 +114,52 @@ with torch.no_grad():
 # ancestor operations.
 
 
-### Simple regressor ###
+### Simple regressor: Optimizing bivariate rosenbrock function ###
+### Rosenbrock function: f(x,y) = (a-x)^2 + b(y-x^2)^2 with global
+### Min at (x,y) = (a,a^2). For a=1, b=100 this is (1,1)
+
+# Clear all previous variables
+import sys
+sys.modules[__name__].__dict__.clear()
+import numpy as np
+import torch
+
+# Define variables that we are minimizing
+a = torch.tensor(1., requires_grad=False)
+b = torch.tensor(100., requires_grad=False)
+x = torch.randn(1, requires_grad=True)
+y = torch.randn(1, requires_grad=True)
+
+# Learning rate and iterations
+lr = 0.001
+iters = 10000
+
+def rb_fun(x,y,a,b):
+    return (a - x) ** 2 + b * (y - x ** 2) ** 2
+
+print("Initial values: x: {}, y: {}, f(x,y): {}".format(x,y,rb_fun(x,y,a,b)))
+
+for i in range(iters):
+    # Forward pass:
+    loss = rb_fun(x,y,a,b)
+
+    # Backward pass
+    loss.backward()
+
+    # Apply gradients
+    with torch.no_grad():
+        x -= x.grad * lr
+        y -= y.grad * lr
+
+        # Manually zero the gradients after updating weights
+        x.grad.zero_()
+        y.grad.zero_()
+
+    if i > 0 and i % 10 == 0:
+        print("Iteration: {}/{}, x,y: {},{}, loss: {}".format(i + 1, iters, x[0], y[0], loss[0]))
 
 
-
+exit()
 ### Convolutional Neural network 3D pose estimation ###
 
 # CUDA
