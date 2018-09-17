@@ -68,10 +68,19 @@ print("a: {}, b: {}, a + b: {}".format(a,b,c))
 
 # Note, when performing operations make sure
 # that the operands are of the same data type
+a = torch.tensor(3)  # int64 type
+b = torch.tensor(3.) # float32 type
+print("atype: {}, btype: {}".format(a.dtype,b.dtype))
+
+# ERROR, data type mismatch:
+print(a + b)
+
+# Convert data type
+b = torch.tensor(3., dtype=torch.int32) # Explicitly force datatype
+b = b.long()
+print(a + b)
+
+### Autograd ###
 
 
-
-# Tensors VS Variables:
-# Tensors are results of an operation
-# Variables are ... variables and can be assigned values, updated etc..
 pass
