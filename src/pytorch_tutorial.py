@@ -81,7 +81,48 @@ b = b.long()
 print(a + b)
 
 ### Autograd ###
-a = torch.tensor(1, requires_grad=True)
-b = torch.tensor(3, requires_grad=True)
+
+# Make two tensors
+a = torch.tensor(8., requires_grad=True)
+b = torch.tensor(3., requires_grad=True)
+
+# c tensor is a function of a,b
+c = torch.exp((a / 2.) - b * b + 0.5)
+print("c value before applying gradients: {}".format(c))
+
+# Backwards pass
+c.backward()
+
+# Print gradients of individual tensors which contributed to c
+print("a.grad: {}, b.grad: {}".format(a.grad, b.grad))
+
+# Move a,b towards the direction of greatest increase of c.
+a = a + a.grad
+b = b + b.grad
+c = torch.exp((a / 2.) - b * b + 0.5)
+print("c value after applying gradients: {}".format(c))
+
+# If we don't want to track the history of operations then
+# the torch.no_grad() context is used to create tensors and operations
+print(a.requires_grad)
+with torch.no_grad():
+    print((a + 2).requires_grad)
+
+# Note: Whenever we create a tensor or perform an operation requiring
+# a gradient, a node is added to the operation graph in the background.
+# This graph enables the backwards() pass to be called on any node and find all
+# ancestor operations.
+
+
+### Simple regressor ###
+
+
+
+### Convolutional Neural network 3D pose estimation ###
+
+# CUDA
+
+# Save and load model
+
 
 pass
