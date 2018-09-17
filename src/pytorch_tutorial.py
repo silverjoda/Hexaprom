@@ -159,7 +159,6 @@ for i in range(iters):
         print("Iteration: {}/{}, x,y: {},{}, loss: {}".format(i + 1, iters, x[0], y[0], loss[0]))
 
 
-exit()
 ### Convolutional Neural network 3D pose estimation ###
 
 # CUDA
