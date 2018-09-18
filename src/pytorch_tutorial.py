@@ -161,6 +161,14 @@ for i in range(iters):
 
 ### Convolutional Neural network 3D pose estimation ###
 
+# Load dataset
+
+# Make model
+
+# Train
+
+
+
 # CUDA
 
 # Save and load model

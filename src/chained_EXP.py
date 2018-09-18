@@ -15,8 +15,7 @@ def f(w):
     done = False
     env_obs = env.reset()
 
-    prev_torques = [0] * 7
-
+    states = [0] * N
     while not done:
 
         # Observations
@@ -24,18 +23,26 @@ def f(w):
         # th, j1, j2, j3, j4, j5, j6, j7, dx, dy, dth, dj1, dj2, dj3, dj4, dj5, dj6, dj7
 
         torques = []
+        newstates = []
+
+        obs = list(env_obs[0:1]) + states[0:1]
+        l1 = np.tanh(np.matmul(obs, wdist.get_w('w_m1', w)) + wdist.get_w('b_m1', w))
+        mout = np.tanh(np.matmul(l1, wdist.get_w('w_m2', w)) + wdist.get_w('b_m2', w))
 
         for i in range(N):
             if i == 0:
-                nt = [0] + prev_torques[1:2]
+                nt = [mout] + states[1:2]
             elif i == N - 1:
-                nt = prev_torques[N-1:N] + [0]
+                nt = states[N-1:N] + [0]
             else:
-                nt = prev_torques[i-1:i] + prev_torques[i+1:i+2]
-            obs = list(env_obs[i:i+1]) + nt
+                nt = states[i-1:i] + states[i+1:i+2]
+            obs = list(env_obs[i+1:i+2]) + nt
             l1 = np.tanh(np.matmul(obs, wdist.get_w('w_l1', w)) + wdist.get_w('b_l1', w))
-            t0 = np.tanh(np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w))
-            torques.append(t0)
+            t, s = np.tanh(np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w))
+            torques.append(t)
+            newstates.append(s)
+
+        states = newstates
 
         # -------------
 
@@ -46,12 +53,11 @@ def f(w):
             env.render()
 
         reward += rew
-        prev_torques = torques
 
     return -reward
 
 # Make environment
-env = gym.make("SwimmerLong-v0")
+env = gym.make("Snek-v0")
 print("Action space: {}, observation space: {}".format(env.action_space.shape, env.observation_space.shape))
 animate = True
 
@@ -68,8 +74,14 @@ print("afun: {}".format(afun))
 wdist.addW((3, 3), 'w_l1')
 wdist.addW((3,), 'b_l1')
 
-wdist.addW((3, 1), 'w_l2')
-wdist.addW((1,), 'b_l2')
+wdist.addW((3, 2), 'w_l2')
+wdist.addW((2,), 'b_l2')
+
+wdist.addW((2, 2), 'w_m1')
+wdist.addW((2,), 'b_m1')
+
+wdist.addW((2, 1), 'w_m2')
+wdist.addW((1,), 'b_m2')
 
 N_weights = wdist.get_N()
 print("Nweights: {}".format(N_weights))
@@ -83,6 +95,6 @@ except KeyboardInterrupt:
     print("User interrupted process.")
 es.result_pretty()
 
-print(es.result.xbest, es.result.fbest, sep=',', file=open("long_swimmer_weights.txt", "a"))
+print(es.result.xbest, es.result.fbest, sep=',', file=open("snek_weights.txt", "a"))
 
 
