@@ -161,12 +161,41 @@ for i in range(iters):
 
 ### Convolutional Neural network 3D pose estimation ###
 
-# Load dataset
+# Load dataset.  M: amount of examples, h: height, w: width, 3: rgb channels, d: label dimension
+Xtrn = np.load("Xtrn.npy") # shape: (M,h,w,3)
+Ytrn = np.load("Ytrn.npy") # shape: (M,d)
+Xtst = np.load("Xtst.npy") # shape: (M,h,w,3)
+Ytst = np.load("Ytst.npy") # shape: (M,d)
 
-# Make model
+# Dataset function
+def dataset_sampler(X, Y, size):
+    pass
+
+# Get shape of images
+M, h, w, c = Xtrn.shape
+_, d = Ytrn.shape
+
+# Check that we have 3 channels
+assert c == 3
+
+#Manually define batchsize and number of training iterations
+N = 32; iters = 1000
+
+# Make input variables
+x = torch.empty(N, h, w, c)
+y = torch.empty(N, d)
+
+cnn = torch.nn.Sequential(
+    torch.nn.Conv2d(3, 16),
+    torch.nn.ReLU(),
+    torch.nn.Conv2d(16, 32),
+    torch.nn.ReLU(),
+    torch.nn.Conv2d(32, 32),
+)
 
 # Train
-
+for i in range(iters):
+    pass
 
 
 # CUDA
