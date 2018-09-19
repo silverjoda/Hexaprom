@@ -121,8 +121,12 @@ with torch.no_grad():
 # Clear all previous variables
 import sys
 sys.modules[__name__].__dict__.clear()
+
+# Import everything
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 # Define variables that we are minimizing
 a = torch.tensor(1., requires_grad=False)
@@ -167,9 +171,6 @@ Ytrn = np.load("Ytrn.npy") # shape: (M,d)
 Xtst = np.load("Xtst.npy") # shape: (M,h,w,3)
 Ytst = np.load("Ytst.npy") # shape: (M,d)
 
-# Dataset function
-def dataset_sampler(X, Y, size):
-    pass
 
 # Get shape of images
 M, h, w, c = Xtrn.shape
@@ -185,17 +186,18 @@ N = 32; iters = 1000; lr = 1e-3
 x = torch.empty(N, h, w, c)
 y = torch.empty(N, d)
 
-cnn = torch.nn.Sequential(
-    torch.nn.Conv2d(3, 16, kernel_size=3),
-    torch.nn.ReLU(),
-    torch.nn.MaxPool2d(kernel_size=2),
-    torch.nn.Conv2d(16, 32, kernel_size=3),
-    torch.nn.ReLU(),
-    torch.nn.MaxPool2d(kernel_size=2),
-    torch.nn.Conv2d(32, 32, kernel_size=3),
-    torch.nn.ReLU(),
-    torch.nn.MaxPool2d(kernel_size=2),
-)
+cnn = nn.Sequential(nn.Conv2d(3, 16, kernel_size=5, stride=2),
+                    nn.ReLU(),
+                    nn.Conv2d(16, 32, kernel_size=5, stride=2),
+                    nn.ReLU(),
+                    nn.Conv2d(32, 32, kernel_size=3, stride=2),
+                    nn.ReLU(),
+                    nn.Conv2d(32, 32, kernel_size=5, stride=2),
+                    nn.ReLU(),
+                    nn.Conv2d(32, 64, kernel_size=4, stride=1),
+                    nn.ReLU(),
+                    nn.Dropout(p=0.3),
+                    nn.Conv2d(64, d, kernel_size=1, stride=1))
 
 # Loss function
 loss_fn = torch.nn.MSELoss()
@@ -207,10 +209,11 @@ optim = torch.optim.Adam(cnn.parameters(), lr=lr)
 for i in range(iters):
 
     # Get data batch of N samples
-    X, Y = dataset_sampler(Xtrn, Ytrn, N)
+    rnd_vec = np.random.choice(np.arange(M), N, replace=False)
+    X, Y = Xtrn[rnd_vec], Ytrn[rnd_vec]
 
     # Make prediction
-    Y_pred = cnn(X)
+    Y_pred = cnn.forward(X)
 
     # Compute loss
     loss = loss_fn(Y_pred, Y)
@@ -225,8 +228,8 @@ for i in range(iters):
         print("Iters: {}/{}, loss: {}".format(i, iters, loss))
 
 # Test
-Y_pred = cnn(Xtst)
-testloss = loss_fn(Y_pred, Y)
+Y_pred = cnn.forward(Xtst)
+testloss = loss_fn(Y_pred, Ytst)
 print("Test loss: {}".format(testloss))
 
 # Print predictions for random examples
