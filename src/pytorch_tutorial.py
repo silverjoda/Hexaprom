@@ -178,29 +178,58 @@ _, d = Ytrn.shape
 # Check that we have 3 channels
 assert c == 3
 
-#Manually define batchsize and number of training iterations
-N = 32; iters = 1000
+#Manually define batchsize and number of training iterations and lr
+N = 32; iters = 1000; lr = 1e-3
 
 # Make input variables
 x = torch.empty(N, h, w, c)
 y = torch.empty(N, d)
 
 cnn = torch.nn.Sequential(
-    torch.nn.Conv2d(3, 16),
+    torch.nn.Conv2d(3, 16, kernel_size=3),
     torch.nn.ReLU(),
-    torch.nn.Conv2d(16, 32),
+    torch.nn.MaxPool2d(kernel_size=2),
+    torch.nn.Conv2d(16, 32, kernel_size=3),
     torch.nn.ReLU(),
-    torch.nn.Conv2d(32, 32),
+    torch.nn.MaxPool2d(kernel_size=2),
+    torch.nn.Conv2d(32, 32, kernel_size=3),
+    torch.nn.ReLU(),
+    torch.nn.MaxPool2d(kernel_size=2),
 )
+
+# Loss function
+loss_fn = torch.nn.MSELoss()
+
+# Optimizer: Adam
+optim = torch.optim.Adam(cnn.parameters(), lr=lr)
 
 # Train
 for i in range(iters):
-    pass
 
+    # Get data batch of N samples
+    X, Y = dataset_sampler(Xtrn, Ytrn, N)
 
-# CUDA
+    # Make prediction
+    Y_pred = cnn(X)
 
-# Save and load model
+    # Compute loss
+    loss = loss_fn(Y_pred, Y)
 
+    # Backprop
+    loss.backward()
 
-pass
+    # Update step
+    optim.step()
+
+    if i % 10 == 0:
+        print("Iters: {}/{}, loss: {}".format(i, iters, loss))
+
+# Test
+Y_pred = cnn(Xtst)
+testloss = loss_fn(Y_pred, Y)
+print("Test loss: {}".format(testloss))
+
+# Print predictions for random examples
+for i in range(20):
+    rnd = np.random.randint(0, Y_pred.shape[0])
+    print("cnn predicted: {}, ground truth result: {}, error_vec: {}".format(Y_pred[rnd], Ytst[rnd], Y_pred[rnd] - Ytst[rnd]))
