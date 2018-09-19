@@ -14,8 +14,13 @@ def f(w):
     reward = 0
     done = False
     env_obs = env.reset()
+    goal_dir = np.random.rand() * 3.14 * 2 - 3.14
+    xposbefore = env_obs[0]
+    yposbefore = env_obs[1]
 
     states = [0] * N
+
+    print(goal_dir)
     while not done:
 
         # Observations
@@ -25,7 +30,7 @@ def f(w):
         torques = []
         newstates = []
 
-        obs = list(env_obs[0:1]) + states[0:1]
+        obs = list(env_obs[2:3]) + states[0:1] + [goal_dir]
         l1 = np.tanh(np.matmul(obs, wdist.get_w('w_m1', w)) + wdist.get_w('b_m1', w))
         mout = np.tanh(np.matmul(l1, wdist.get_w('w_m2', w)) + wdist.get_w('b_m2', w))
 
@@ -36,23 +41,30 @@ def f(w):
                 nt = states[N-1:N] + [0]
             else:
                 nt = states[i-1:i] + states[i+1:i+2]
-            obs = list(env_obs[i+1:i+2]) + nt
+            obs = list(env_obs[i+2:i+3]) + nt
             l1 = np.tanh(np.matmul(obs, wdist.get_w('w_l1', w)) + wdist.get_w('b_l1', w))
             t, s = np.tanh(np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w))
             torques.append(t)
             newstates.append(s)
 
         states = newstates
-
         # -------------
 
         # Step environment
         env_obs, rew, done, _ = env.step(torques)
 
+        xposafter = env_obs[0]
+        yposafter = env_obs[1]
+
+        reward_dir = np.cos(goal_dir) * (xposafter - xposbefore) + np.sin(goal_dir) * (yposafter - yposbefore)
+
+        xposbefore = xposafter
+        yposbefore = yposafter
+
         if animate:
             env.render()
 
-        reward += rew
+        reward += reward_dir
 
     return -reward
 
@@ -77,7 +89,7 @@ wdist.addW((3,), 'b_l1')
 wdist.addW((3, 2), 'w_l2')
 wdist.addW((2,), 'b_l2')
 
-wdist.addW((2, 2), 'w_m1')
+wdist.addW((3, 2), 'w_m1')
 wdist.addW((2,), 'b_m1')
 
 wdist.addW((2, 1), 'w_m2')
