@@ -57,7 +57,7 @@ def f(w):
         yposafter = env_obs[1]
 
         reward_dir = np.cos(goal_dir) * (xposafter - xposbefore) + np.sin(goal_dir) * (yposafter - yposbefore)
-
+        reward_dir /= 0.04
         xposbefore = xposafter
         yposbefore = yposafter
 
