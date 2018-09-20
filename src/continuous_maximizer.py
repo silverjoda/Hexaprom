@@ -17,11 +17,11 @@ class Model(nn.Module):
         # Set states
         self.reset()
 
-        self.rnn_out = nn.GRUCell(obs_dim + act_dim, n_hid)
+        self.rnn = nn.GRUCell(obs_dim + act_dim, n_hid)
         self.l1a = nn.Linear(n_hid, 32)
         self.l1b = nn.Linear(n_hid, 16)
         self.out = nn.Linear(32, obs_dim)
-        self.rew = nn.Linear(16, obs_dim)
+        self.rew = nn.Linear(16, 1)
 
 
     def forward(self, x):
@@ -77,7 +77,7 @@ def main():
     # Train prediction model on random rollouts
     MSE = torch.nn.MSELoss()
     optim_model = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-    model_eps = 10
+    model_eps = 1000
     for i in range(model_eps):
         s = env.reset()
         model.reset()
@@ -87,21 +87,23 @@ def main():
         rewards = []
         state_predictions = []
         reward_predictions = []
+
         while not done:
             a = env.action_space.sample()
-            states.append(s)
 
             # Make prediction
-            pred, rew = model(torch.cat([np.expand_dims(np.asarray(s),0), np.expand_dims(np.asarray(a),0)], 1))
-            state_predictions.append(pred)
-            reward_predictions.append(rew)
+            sa = np.concatenate([np.expand_dims(s, 0), np.expand_dims(a, 0)], axis=1).astype(np.float32)
+            pred, rew = model(torch.from_numpy(sa))
+            state_predictions.append(pred[0])
+            reward_predictions.append(rew[0])
 
             s, rew, done, info = env.step(a)
             rewards.append(rew)
+            states.append(s)
 
         # Convert to torch tensors
-        newstates_tens = torch.from_numpy(np.asarray(states[1:], dtype=np.float32))
-        rewards_tens = torch.from_numpy(np.asarray(rewards, dtype=np.float32))
+        newstates_tens = torch.from_numpy(np.asarray(states, dtype=np.float32))
+        rewards_tens = torch.from_numpy(np.asarray(rewards, dtype=np.float32)).unsqueeze(1)
         state_pred_tens = torch.stack(state_predictions)
         rew_pred_tens = torch.stack(reward_predictions)
 
@@ -116,9 +118,11 @@ def main():
 
         # Update
         optim_model.step()
-        print("Iter: {}/{}, states_loss: {}, rewards_loss: {}".format(i, model_eps, loss_states, loss_rewards))
+        if i % 10 == 0:
+            print("Iter: {}/{}, states_loss: {}, rewards_loss: {}".format(i, model_eps, loss_states, loss_rewards))
 
     print("Finished training model")
+    exit()
 
     # Training algorithm:
     optim_policy = torch.optim.Adam(policy.parameters(), lr=1e-3, weight_decay=1e-4)
