@@ -165,5 +165,7 @@ def main():
         optim_model.step()
         optim_policy.step()
 
+        print("Iter: {}/{}, model_loss: {}, policy_loss: {}".format(i, trn_eps, model_loss, policy_loss))
+
 if __name__=='__main__':
     main()
