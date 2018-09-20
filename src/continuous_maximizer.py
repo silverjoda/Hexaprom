@@ -175,14 +175,14 @@ def main():
         # Backprop
         optim_model.zero_grad()
         optim_policy.zero_grad()
+        policy_loss.backward(retain_graph=True)
         total_model_loss.backward()
-        policy_loss.backward()
 
         # Update
         optim_model.step()
         optim_policy.step()
 
-        print("Iter: {}/{}, model_loss: {}, policy_loss: {}".format(i, trn_eps, model_loss, policy_loss))
+        print("Iter: {}/{}, states_loss: {}, rew_loss: {}, policy_loss: {}".format(i, trn_eps, loss_states, loss_rewards, policy_loss))
 
 if __name__=='__main__':
     main()
