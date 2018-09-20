@@ -133,12 +133,12 @@ def main():
     animate = False
     for i in range(trn_eps):
         done = False
-        s = env.reset()
+        s = env.reset().astype(np.float32)
         model.reset()
         policy.reset()
 
         sdiff = torch.zeros(1, obs_dim)
-        pred_state = torch.from_numpy(s.astype(np.float32)).unsqueeze(0)
+        pred_state = torch.from_numpy(s).unsqueeze(0)
 
         while not done:
 
@@ -146,11 +146,11 @@ def main():
             pred_a = policy(pred_state - sdiff)
 
             # Make prediction
-            pred_s, rew = model(torch.cat([torch.from_numpy(s).unsqueeze(0), pred_a]))
-            state_predictions.append(pred[0])
-            reward_predictions.append(rew[0])
+            pred_s, pred_rew = model(torch.cat([torch.from_numpy(s).unsqueeze(0), pred_a], 1))
+            state_predictions.append(pred_s[0])
+            reward_predictions.append(pred_rew[0])
 
-            s, rew, done, info = env.step(pred_a.numpy())
+            s, rew, done, info = env.step(pred_a.detach().numpy())
             rewards.append(rew)
             states.append(s)
 
