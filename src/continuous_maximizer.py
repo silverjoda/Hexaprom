@@ -77,7 +77,7 @@ def main():
     # Train prediction model on random rollouts
     MSE = torch.nn.MSELoss()
     optim_model = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-    model_eps = 0
+    model_eps = 1000
     for i in range(model_eps):
         s = env.reset()
         model.reset()
@@ -124,13 +124,13 @@ def main():
     print("Finished training model")
 
     # Training algorithm:
-    optim_policy = torch.optim.Adam(policy.parameters(), lr=1e-3, weight_decay=1e-4)
+    optim_policy = torch.optim.Adam(policy.parameters(), lr=1e-4, weight_decay=1e-4)
     states = []
     rewards = []
     state_predictions = []
     reward_predictions = []
-    trn_eps = 10
-    animate = False
+    trn_eps = 100
+    animate = True
     for i in range(trn_eps):
         done = False
         s = env.reset()
@@ -176,13 +176,15 @@ def main():
         optim_model.zero_grad()
         optim_policy.zero_grad()
         policy_loss.backward(retain_graph=True)
-        total_model_loss.backward()
+        total_model_loss.backward(retain_graph=True)
+
+        # TODO: FInd out what is wrong in the graph, maybe loss functions are being mixed up
 
         # Update
         optim_model.step()
         optim_policy.step()
 
-        print("Iter: {}/{}, states_loss: {}, rew_loss: {}, policy_loss: {}".format(i, trn_eps, loss_states, loss_rewards, policy_loss))
+        print("Iter: {}/{}, states_loss: {}, rew_loss: {}, policy_loss: {}".format(i, trn_eps, loss_states, loss_rewards, -policy_loss))
 
 if __name__=='__main__':
     main()
