@@ -133,12 +133,12 @@ def main():
     animate = False
     for i in range(trn_eps):
         done = False
-        s = env.reset().astype(np.float32)
+        s = env.reset()
         model.reset()
         policy.reset()
 
         sdiff = torch.zeros(1, obs_dim)
-        pred_state = torch.from_numpy(s).unsqueeze(0)
+        pred_state = torch.from_numpy(s.astype(np.float32)).unsqueeze(0)
 
         while not done:
 
@@ -146,7 +146,7 @@ def main():
             pred_a = policy(pred_state - sdiff)
 
             # Make prediction
-            pred_s, pred_rew = model(torch.cat([torch.from_numpy(s).unsqueeze(0), pred_a], 1))
+            pred_s, pred_rew = model(torch.cat([torch.from_numpy(s.astype(np.float32)).unsqueeze(0), pred_a], 1))
             state_predictions.append(pred_s[0])
             reward_predictions.append(pred_rew[0])
 
@@ -158,24 +158,24 @@ def main():
                 env.render()
 
             # Difference between predicted state and real
-            sdiff = pred_s - torch.from_numpy(s)
+            sdiff = pred_s - torch.from_numpy(s.astype(np.float32))
 
-        newstates = np.asarray(states[1:], dtype=np.float32)
-        rewards = np.asarray(rewards, dtype=np.float32)
-
-        # Convert to torch tensors
-        newstates_tens = torch.from_numpy(newstates)
-        rewards_tens = torch.from_numpy(rewards)
-        pred_tens = torch.stack(state_predictions)
+        # Convert to torch
+        states_tens = torch.from_numpy(np.asarray(states, dtype=np.float32))
+        rewards_tens = torch.from_numpy(np.asarray(rewards, dtype=np.float32)).unsqueeze(1)
+        state_pred_tens = torch.stack(state_predictions)
+        rew_pred_tens = torch.stack(reward_predictions)
 
         # Calculate loss
-        model_loss = loss_fun_model(pred_tens, newstates_tens)
-        policy_loss = -rewards_tens.sum() # Just x coordinate
+        loss_states = MSE(state_pred_tens, states_tens)
+        loss_rewards = MSE(rew_pred_tens, rewards_tens)
+        total_model_loss = loss_rewards + loss_states
+        policy_loss = -rew_pred_tens.sum()
 
         # Backprop
         optim_model.zero_grad()
         optim_policy.zero_grad()
-        model_loss.backward()
+        total_model_loss.backward()
         policy_loss.backward()
 
         # Update
