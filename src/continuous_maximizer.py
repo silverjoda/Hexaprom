@@ -46,7 +46,7 @@ class Policy(nn.Module):
         # Set states
         self.reset()
 
-        self.rnn_out = nn.GRUCell(obs_dim, n_hid)
+        self.rnn = nn.GRUCell(obs_dim, n_hid)
         self.l1 = nn.Linear(n_hid, 32)
         self.out = nn.Linear(32, act_dim)
 
@@ -69,15 +69,15 @@ def main():
     act_dim = env.action_space.shape[0]
 
     # Create prediction model
-    model = Model(obs_dim, act_dim, obs_dim)
+    model = Model(obs_dim, act_dim, 16)
 
     # Create policy model
-    policy = Policy(obs_dim, act_dim, obs_dim)
+    policy = Policy(obs_dim, act_dim, 16)
 
     # Train prediction model on random rollouts
     MSE = torch.nn.MSELoss()
     optim_model = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-    model_eps = 1000
+    model_eps = 0
     for i in range(model_eps):
         s = env.reset()
         model.reset()
@@ -102,13 +102,13 @@ def main():
             states.append(s)
 
         # Convert to torch tensors
-        newstates_tens = torch.from_numpy(np.asarray(states, dtype=np.float32))
+        states_tens = torch.from_numpy(np.asarray(states, dtype=np.float32))
         rewards_tens = torch.from_numpy(np.asarray(rewards, dtype=np.float32)).unsqueeze(1)
         state_pred_tens = torch.stack(state_predictions)
         rew_pred_tens = torch.stack(reward_predictions)
 
         # Calculate loss
-        loss_states = MSE(state_pred_tens, newstates_tens)
+        loss_states = MSE(state_pred_tens, states_tens)
         loss_rewards = MSE(rew_pred_tens, rewards_tens)
         total_loss = loss_rewards + loss_states
 
@@ -122,36 +122,40 @@ def main():
             print("Iter: {}/{}, states_loss: {}, rewards_loss: {}".format(i, model_eps, loss_states, loss_rewards))
 
     print("Finished training model")
-    exit()
 
     # Training algorithm:
     optim_policy = torch.optim.Adam(policy.parameters(), lr=1e-3, weight_decay=1e-4)
     states = []
-    state_predictions = []
     rewards = []
+    state_predictions = []
+    reward_predictions = []
     trn_eps = 10
+    animate = False
     for i in range(trn_eps):
-
         done = False
         s = env.reset()
         model.reset()
         policy.reset()
 
         sdiff = torch.zeros(1, obs_dim)
-        pred_state = torch.from_numpy(s).unsqueeze(0)
+        pred_state = torch.from_numpy(s.astype(np.float32)).unsqueeze(0)
 
         while not done:
-            states.append(s)
 
             # Predict action from current state
             pred_a = policy(pred_state - sdiff)
 
-            # Predict next state from current state and predicted action
-            pred_s, pred_rew = model(torch.cat([torch.from_numpy(s).unsqueeze(0), pred_a]))
-            state_predictions.append(pred_s)
+            # Make prediction
+            pred_s, rew = model(torch.cat([torch.from_numpy(s).unsqueeze(0), pred_a]))
+            state_predictions.append(pred[0])
+            reward_predictions.append(rew[0])
 
-            # Perform simulation to get real state
-            s = env.step(pred_a.numpy())
+            s, rew, done, info = env.step(pred_a.numpy())
+            rewards.append(rew)
+            states.append(s)
+
+            if animate:
+                env.render()
 
             # Difference between predicted state and real
             sdiff = pred_s - torch.from_numpy(s)
