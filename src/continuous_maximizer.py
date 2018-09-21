@@ -60,27 +60,15 @@ class Policy(nn.Module):
     def reset(self, batchsize=1):
         self.h = torch.zeros(batchsize, self.n_hid).float()
 
-
-def main():
-
-    # Create environment
-    env = gym.make("Hopper-v2")
-    obs_dim = env.observation_space.shape[0]
-    act_dim = env.action_space.shape[0]
-
-    # Create prediction model
-    model = Model(obs_dim, act_dim, 16)
-
-    # Create policy model
-    policy = Policy(obs_dim, act_dim, 16)
+def pretrain_model(model, env, iters, lr=1e-3):
+    if iters == 0:
+        return
 
     # Train prediction model on random rollouts
     MSE = torch.nn.MSELoss()
-    optim_model = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-    optim_policy = torch.optim.Adam(policy.parameters(), lr=1e-4, weight_decay=1e-4)
+    optim_model = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
 
-    model_eps = 0
-    for i in range(model_eps):
+    for i in range(iters):
         s = env.reset()
         model.reset()
         done = False
@@ -121,16 +109,38 @@ def main():
         # Update
         optim_model.step()
         if i % 10 == 0:
-            print("Iter: {}/{}, states_loss: {}, rewards_loss: {}".format(i, model_eps, loss_states, loss_rewards))
+            print("Iter: {}/{}, states_loss: {}, rewards_loss: {}".format(i, iters, loss_states, loss_rewards))
 
-    print("Finished training model")
+    print("Finished pretraining model on random actions, saving")
+    torch.save(model, 'pretrained_rnd.pt')
 
-    optim_model = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
-    optim_policy = torch.optim.Adam(policy.parameters(), lr=3e-4, weight_decay=1e-4)
+
+def main():
+
+    # Create environment
+    env = gym.make("Hopper-v2")
+    obs_dim = env.observation_space.shape[0]
+    act_dim = env.action_space.shape[0]
+
+    # Create prediction model
+    model = Model(obs_dim, act_dim, 16)
+
+    # Create policy model
+    policy = Policy(obs_dim, act_dim, 16)
+
+    # Pretrain model on random actions
+    pretrain_iters = 1000
+    pretrain_model(model, env, pretrain_iters, lr=1e-3)
+    if pretrain_iters == 0:
+        torch.load("pretrained_rnd.pt")
+        print("Loading pretrained_rnd model")
+
+    optim_model = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    optim_policy = torch.optim.Adam(policy.parameters(), lr=2e-4, weight_decay=1e-4)
 
     # Training algorithm:
     trn_eps = 1000
-    animate = False
+    animate = True
     for i in range(trn_eps):
         done = False
         s = env.reset()
@@ -174,12 +184,13 @@ def main():
         # Calculate loss
         loss_states = MSE(state_pred_tens, states_tens)
         loss_rewards = MSE(rew_pred_tens, rewards_tens)
+        total_model_loss = loss_states + loss_rewards
         policy_score = rew_pred_tens.sum()
 
         # Backprop
         optim_model.zero_grad()
         optim_policy.zero_grad()
-        (loss_rewards + loss_states - policy_score).backward()
+        (total_model_loss - policy_score).backward()
 
         # Update
         optim_model.step()
