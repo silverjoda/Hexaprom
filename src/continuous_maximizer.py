@@ -23,6 +23,13 @@ class Model(nn.Module):
         self.out = nn.Linear(obs_dim * 4, obs_dim)
         self.rew = nn.Linear(obs_dim * 2, 1)
 
+        torch.nn.init.xavier_uniform_(self.rnn.weight_hh)
+        torch.nn.init.xavier_uniform_(self.rnn.weight_ih)
+        torch.nn.init.xavier_uniform_(self.l1a.weight)
+        torch.nn.init.xavier_uniform_(self.l1b.weight)
+        torch.nn.init.xavier_uniform_(self.out.weight)
+        torch.nn.init.xavier_uniform_(self.rew.weight)
+
 
     def forward(self, x):
         self.h = self.rnn(x, self.h)
@@ -50,6 +57,10 @@ class Policy(nn.Module):
         self.l1 = nn.Linear(n_hid, obs_dim * 5)
         self.out = nn.Linear(obs_dim * 5, act_dim)
 
+        torch.nn.init.xavier_uniform_(self.rnn.weight_hh)
+        torch.nn.init.xavier_uniform_(self.rnn.weight_ih)
+        torch.nn.init.xavier_uniform_(self.l1.weight)
+        torch.nn.init.xavier_uniform_(self.out.weight)
 
     def forward(self, x):
         self.h = self.rnn(x, self.h)
@@ -138,7 +149,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
         while not done:
 
             # Predict action from current state
-            pred_a = policy(pred_state - sdiff)
+            pred_a = policy(pred_state - sdiff) + torch.randn(1, env.action_space.shape[0]) * 0.1
 
             # Make prediction
             pred_s, pred_rew = model(torch.cat([torch.from_numpy(s.astype(np.float32)).unsqueeze(0), pred_a], 1))
@@ -181,7 +192,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
 
             # Predict action from current state
             with torch.no_grad():
-                pred_a = policy(torch.from_numpy(s.astype(np.float32)).unsqueeze(0)) + torch.randn(1, env.action_space.shape[0]) * 0.3
+                pred_a = policy(torch.from_numpy(s.astype(np.float32)).unsqueeze(0))
 
             # Make prediction
             pred_s, pred_rew = model(torch.cat([torch.from_numpy(s.astype(np.float32)).unsqueeze(0), pred_a], 1))
@@ -222,7 +233,8 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
 def main():
 
     # Create environment
-    env = gym.make("Ant-v3")
+    env = gym.make("HalfCheetah-v2")
+    print("Env: {}".format(env.spec.id))
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
 
@@ -233,7 +245,7 @@ def main():
     policy = Policy(obs_dim, act_dim, 64)
 
     # Pretrain model on random actions
-    pretrain_iters = 0
+    pretrain_iters = 3000
     pretrain_model(model, env, pretrain_iters, lr=1e-3)
     if pretrain_iters == 0:
         model = torch.load("{}.pt".format(env.spec.id))
