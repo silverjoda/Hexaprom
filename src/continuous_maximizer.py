@@ -77,7 +77,7 @@ def pretrain_model(model, env, iters, lr=1e-3):
 
     # Train prediction model on random rollouts
     MSE = torch.nn.MSELoss()
-    optim_model = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=1e-4)
+    optim_model = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
 
     for i in range(iters):
         s = env.reset()
@@ -192,7 +192,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
 
             # Predict action from current state
             with torch.no_grad():
-                pred_a = policy(torch.from_numpy(s.astype(np.float32)).unsqueeze(0))
+                pred_a = policy(torch.from_numpy(s.astype(np.float32)).unsqueeze(0)) + torch.randn(1, env.action_space.shape[0]) * 0.2
 
             # Make prediction
             pred_s, pred_rew = model(torch.cat([torch.from_numpy(s.astype(np.float32)).unsqueeze(0), pred_a], 1))
@@ -233,7 +233,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
 def main():
 
     # Create environment
-    env = gym.make("HalfCheetah-v2")
+    env = gym.make("Walker2d-v2")
     print("Env: {}".format(env.spec.id))
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
@@ -252,8 +252,12 @@ def main():
         print("Loading pretrained_rnd model")
 
     # Train optimization
-    opt_iters = 1000
-    train_opt(model, policy, env, opt_iters, animate=True, lr_model=1e-4, lr_policy=1e-4)
+    opt_iters = 3000
+    train_opt(model, policy, env, opt_iters, animate=True, lr_model=1e-4, lr_policy=5e-3)
+
+    # TODO: BATCH TRAING EVERYTHING. SINGLE EXAMPLE UPDATES TOO NOISY
+    # TODO: TRY WITH AND WITHOUT THE DIFF
+    # TODO: TRY STOCHASTIC ACTIONS
 
     print("Finished training, saving")
     torch.save(policy, '{}_policy.pt'.format(env.spec.id))
