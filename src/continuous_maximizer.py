@@ -18,10 +18,10 @@ class Model(nn.Module):
         self.reset()
 
         self.rnn = nn.GRUCell(obs_dim + act_dim, n_hid)
-        self.l1a = nn.Linear(n_hid, 32)
-        self.l1b = nn.Linear(n_hid, 16)
-        self.out = nn.Linear(32, obs_dim)
-        self.rew = nn.Linear(16, 1)
+        self.l1a = nn.Linear(n_hid, obs_dim * 4)
+        self.l1b = nn.Linear(n_hid, obs_dim * 2)
+        self.out = nn.Linear(obs_dim * 4, obs_dim)
+        self.rew = nn.Linear(obs_dim * 2, 1)
 
 
     def forward(self, x):
@@ -47,8 +47,8 @@ class Policy(nn.Module):
         self.reset()
 
         self.rnn = nn.GRUCell(obs_dim, n_hid)
-        self.l1 = nn.Linear(n_hid, 32)
-        self.out = nn.Linear(32, act_dim)
+        self.l1 = nn.Linear(n_hid, obs_dim * 5)
+        self.out = nn.Linear(obs_dim * 5, act_dim)
 
 
     def forward(self, x):
@@ -112,53 +112,76 @@ def pretrain_model(model, env, iters, lr=1e-3):
             print("Iter: {}/{}, states_loss: {}, rewards_loss: {}".format(i, iters, loss_states, loss_rewards))
 
     print("Finished pretraining model on random actions, saving")
-    torch.save(model, 'pretrained_rnd.pt')
+    torch.save(model, '{}_model.pt'.format(env.spec.id))
 
 
-def main():
+def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=2e-4):
+    optim_model = torch.optim.Adam(model.parameters(), lr=lr_model, weight_decay=1e-4)
+    optim_policy = torch.optim.Adam(policy.parameters(), lr=lr_policy, weight_decay=1e-4)
 
-    # Create environment
-    env = gym.make("Hopper-v2")
-    obs_dim = env.observation_space.shape[0]
-    act_dim = env.action_space.shape[0]
-
-    # Create prediction model
-    model = Model(obs_dim, act_dim, 16)
-
-    # Create policy model
-    policy = Policy(obs_dim, act_dim, 16)
-
-    # Pretrain model on random actions
-    pretrain_iters = 1000
-    pretrain_model(model, env, pretrain_iters, lr=1e-3)
-    if pretrain_iters == 0:
-        torch.load("pretrained_rnd.pt")
-        print("Loading pretrained_rnd model")
-
-    optim_model = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-    optim_policy = torch.optim.Adam(policy.parameters(), lr=2e-4, weight_decay=1e-4)
+    MSE = torch.nn.MSELoss()
 
     # Training algorithm:
-    trn_eps = 1000
-    animate = True
-    for i in range(trn_eps):
+    for i in range(iters):
+
+        ### Policy step ----------------------------------------
         done = False
         s = env.reset()
-        model.reset()
         policy.reset()
+        model.reset()
 
-        states = []
-        rewards = []
-        state_predictions = []
         reward_predictions = []
 
-        sdiff = torch.zeros(1, obs_dim)
+        sdiff = torch.zeros(1, env.observation_space.shape[0])
         pred_state = torch.from_numpy(s.astype(np.float32)).unsqueeze(0)
 
         while not done:
 
             # Predict action from current state
             pred_a = policy(pred_state - sdiff)
+
+            # Make prediction
+            pred_s, pred_rew = model(torch.cat([torch.from_numpy(s.astype(np.float32)).unsqueeze(0), pred_a], 1))
+            reward_predictions.append(pred_rew[0])
+
+            s, rew, done, info = env.step(pred_a.detach().numpy())
+
+            if animate:
+                env.render()
+
+            # Difference between predicted state and real
+            sdiff = pred_s - torch.from_numpy(s.astype(np.float32))
+
+        # Convert to torch
+        rew_pred_tens = torch.stack(reward_predictions)
+
+        # Calculate loss
+        policy_score = rew_pred_tens.sum()
+
+        # Backprop
+        optim_policy.zero_grad()
+        (- policy_score).backward()
+
+        # Update
+        optim_policy.step()
+
+        ## Model Step ----------------------------------------
+
+        done = False
+        s = env.reset()
+        policy.reset()
+        model.reset()
+
+        states = []
+        rewards = []
+        state_predictions = []
+        reward_predictions = []
+
+        while not done:
+
+            # Predict action from current state
+            with torch.no_grad():
+                pred_a = policy(torch.from_numpy(s.astype(np.float32)).unsqueeze(0)) + torch.randn(1, env.action_space.shape[0]) * 0.3
 
             # Make prediction
             pred_s, pred_rew = model(torch.cat([torch.from_numpy(s.astype(np.float32)).unsqueeze(0), pred_a], 1))
@@ -172,9 +195,6 @@ def main():
             if animate:
                 env.render()
 
-            # Difference between predicted state and real
-            sdiff = pred_s - torch.from_numpy(s.astype(np.float32))
-
         # Convert to torch
         states_tens = torch.from_numpy(np.asarray(states, dtype=np.float32))
         rewards_tens = torch.from_numpy(np.asarray(rewards, dtype=np.float32)).unsqueeze(1)
@@ -185,18 +205,47 @@ def main():
         loss_states = MSE(state_pred_tens, states_tens)
         loss_rewards = MSE(rew_pred_tens, rewards_tens)
         total_model_loss = loss_states + loss_rewards
-        policy_score = rew_pred_tens.sum()
 
         # Backprop
         optim_model.zero_grad()
-        optim_policy.zero_grad()
-        (total_model_loss - policy_score).backward()
+        total_model_loss.backward()
 
         # Update
         optim_model.step()
-        optim_policy.step()
 
-        print("Iter: {}/{}, states prediction loss: {}, rew prediction loss: {}, policy score: {}".format(i, trn_eps, loss_states, loss_rewards, policy_score))
+        print("Iter: {}/{}, states prediction loss: {}, rew prediction loss: {}, policy score: {}".format(i, iters,
+                                                                                                          loss_states,
+                                                                                                          loss_rewards,
+                                                                                                          policy_score))
+
+
+def main():
+
+    # Create environment
+    env = gym.make("Ant-v3")
+    obs_dim = env.observation_space.shape[0]
+    act_dim = env.action_space.shape[0]
+
+    # Create prediction model
+    model = Model(obs_dim, act_dim, 64)
+
+    # Create policy model
+    policy = Policy(obs_dim, act_dim, 64)
+
+    # Pretrain model on random actions
+    pretrain_iters = 0
+    pretrain_model(model, env, pretrain_iters, lr=1e-3)
+    if pretrain_iters == 0:
+        model = torch.load("{}.pt".format(env.spec.id))
+        print("Loading pretrained_rnd model")
+
+    # Train optimization
+    opt_iters = 1000
+    train_opt(model, policy, env, opt_iters, animate=True, lr_model=1e-4, lr_policy=7e-4)
+
+    print("Finished training, saving")
+    torch.save(policy, '{}_policy.pt'.format(env.spec.id))
+    torch.save(model, '{}_model.pt'.format(env.spec.id))
 
 if __name__=='__main__':
     main()
