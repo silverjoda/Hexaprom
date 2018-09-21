@@ -77,7 +77,7 @@ def pretrain_model(model, env, iters, lr=1e-3):
 
     # Train prediction model on random rollouts
     MSE = torch.nn.MSELoss()
-    optim_model = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    optim_model = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=1e-4)
 
     for i in range(iters):
         s = env.reset()
@@ -149,7 +149,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
         while not done:
 
             # Predict action from current state
-            pred_a = policy(pred_state - sdiff) + torch.randn(1, env.action_space.shape[0]) * 0.1
+            pred_a = policy(pred_state - sdiff)
 
             # Make prediction
             pred_s, pred_rew = model(torch.cat([torch.from_numpy(s.astype(np.float32)).unsqueeze(0), pred_a], 1))
@@ -245,15 +245,15 @@ def main():
     policy = Policy(obs_dim, act_dim, 64)
 
     # Pretrain model on random actions
-    pretrain_iters = 3000
+    pretrain_iters = 0
     pretrain_model(model, env, pretrain_iters, lr=1e-3)
     if pretrain_iters == 0:
-        model = torch.load("{}.pt".format(env.spec.id))
+        model = torch.load("{}_model.pt".format(env.spec.id))
         print("Loading pretrained_rnd model")
 
     # Train optimization
     opt_iters = 1000
-    train_opt(model, policy, env, opt_iters, animate=True, lr_model=1e-4, lr_policy=7e-4)
+    train_opt(model, policy, env, opt_iters, animate=True, lr_model=1e-4, lr_policy=1e-4)
 
     print("Finished training, saving")
     torch.save(policy, '{}_policy.pt'.format(env.spec.id))
