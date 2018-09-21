@@ -77,7 +77,9 @@ def main():
     # Train prediction model on random rollouts
     MSE = torch.nn.MSELoss()
     optim_model = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-    model_eps = 1000
+    optim_policy = torch.optim.Adam(policy.parameters(), lr=1e-4, weight_decay=1e-4)
+
+    model_eps = 0
     for i in range(model_eps):
         s = env.reset()
         model.reset()
@@ -123,19 +125,22 @@ def main():
 
     print("Finished training model")
 
+    optim_model = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
+    optim_policy = torch.optim.Adam(policy.parameters(), lr=3e-4, weight_decay=1e-4)
+
     # Training algorithm:
-    optim_policy = torch.optim.Adam(policy.parameters(), lr=1e-4, weight_decay=1e-4)
-    states = []
-    rewards = []
-    state_predictions = []
-    reward_predictions = []
-    trn_eps = 100
-    animate = True
+    trn_eps = 1000
+    animate = False
     for i in range(trn_eps):
         done = False
         s = env.reset()
         model.reset()
         policy.reset()
+
+        states = []
+        rewards = []
+        state_predictions = []
+        reward_predictions = []
 
         sdiff = torch.zeros(1, obs_dim)
         pred_state = torch.from_numpy(s.astype(np.float32)).unsqueeze(0)
@@ -169,22 +174,18 @@ def main():
         # Calculate loss
         loss_states = MSE(state_pred_tens, states_tens)
         loss_rewards = MSE(rew_pred_tens, rewards_tens)
-        total_model_loss = loss_rewards + loss_states
-        policy_loss = -rew_pred_tens.sum()
+        policy_score = rew_pred_tens.sum()
 
         # Backprop
         optim_model.zero_grad()
         optim_policy.zero_grad()
-        policy_loss.backward(retain_graph=True)
-        total_model_loss.backward(retain_graph=True)
-
-        # TODO: FInd out what is wrong in the graph, maybe loss functions are being mixed up
+        (loss_rewards + loss_states - policy_score).backward()
 
         # Update
         optim_model.step()
         optim_policy.step()
 
-        print("Iter: {}/{}, states_loss: {}, rew_loss: {}, policy_loss: {}".format(i, trn_eps, loss_states, loss_rewards, -policy_loss))
+        print("Iter: {}/{}, states prediction loss: {}, rew prediction loss: {}, policy score: {}".format(i, trn_eps, loss_states, loss_rewards, policy_score))
 
 if __name__=='__main__':
     main()
