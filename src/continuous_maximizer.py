@@ -149,7 +149,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
         while not done:
 
             # Predict action from current state
-            pred_a = policy(pred_state)
+            pred_a = policy(pred_state - sdiff)
 
             # Make prediction
             pred_s, pred_rew = model(torch.cat([torch.from_numpy(s.astype(np.float32)).unsqueeze(0), pred_a], 1))
@@ -180,7 +180,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
         loss_rewards = 0
 
         ## Model Step ----------------------------------------
-        for i in range(model_rpts):
+        for j in range(model_rpts):
 
             done = False
             s = env.reset()
@@ -252,7 +252,7 @@ def eval(env, policy):
 def main():
 
     # Create environment
-    env = gym.make("Ant-v3")
+    env = gym.make("Hopper-v2")
     print("Env: {}".format(env.spec.id))
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
@@ -265,7 +265,7 @@ def main():
 
     # Pretrain model on random actions
     t1 = time.time()
-    pretrain_iters = 5000
+    pretrain_iters = 0
     pretrain_model(model, env, pretrain_iters, lr=1e-3)
     if pretrain_iters == 0:
         model = torch.load("{}_model.pt".format(env.spec.id))
@@ -274,12 +274,12 @@ def main():
     print("Pretraining finished, took {} s".format(time.time() - t1))
 
     # Train optimization
-    opt_iters = 300
-    train_opt(model, policy, env, opt_iters, animate=True, lr_model=1e-4, lr_policy=5e-3, model_rpts=0)
+    opt_iters = 3000
+    train_opt(model, policy, env, opt_iters, animate=True, lr_model=3e-4, lr_policy=1e-3, model_rpts=1)
 
     # TODO: BATCH TRAING EVERYTHING. SINGLE EXAMPLE UPDATES TOO NOISY
     # TODO: TRY WITH AND WITHOUT THE DIFF
-    # TODO: TRY STOCHASTIC ACTIONS
+    # TODO: CHANGE POLICY TO STOCHASTIC
 
     print("Finished training, saving")
     torch.save(policy, '{}_policy.pt'.format(env.spec.id))
