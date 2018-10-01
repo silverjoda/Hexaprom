@@ -14,7 +14,7 @@ def f(w):
     reward = 0
     done = False
     env_obs = env.reset()
-    goal_dir = np.random.rand() * 3.14 * 2 - 3.14
+    goal_dir = 0 #np.random.rand() * 3.14 * 2 - 3.14
     xposbefore = env_obs[0]
     yposbefore = env_obs[1]
 
@@ -24,13 +24,14 @@ def f(w):
     while not done:
 
         # Observations
-        #  0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10,  11,  12,  13,  14,  15,  16,  17
-        # th, j1, j2, j3, j4, j5, j6, j7, dx, dy, dth, dj1, dj2, dj3, dj4, dj5, dj6, dj7
+        # x,y,th : 0:3
+        # j1,j2,j3,j4... : 3:21
+        # x,y,th : 21:24
 
         torques = []
         newstates = []
 
-        obs = list(env_obs[2:3]) + states[0:1] + [goal_dir]
+        obs = list(env_obs[2:3]) + states[0:1]
         l1 = np.tanh(np.matmul(obs, wdist.get_w('w_m1', w)) + wdist.get_w('b_m1', w))
         mout = np.tanh(np.matmul(l1, wdist.get_w('w_m2', w)) + wdist.get_w('b_m2', w))
 
@@ -89,7 +90,7 @@ wdist.addW((3,), 'b_l1')
 wdist.addW((3, 2), 'w_l2')
 wdist.addW((2,), 'b_l2')
 
-wdist.addW((3, 2), 'w_m1')
+wdist.addW((2, 2), 'w_m1')
 wdist.addW((2,), 'b_m1')
 
 wdist.addW((2, 1), 'w_m2')
@@ -100,6 +101,8 @@ print("Nweights: {}".format(N_weights))
 w = np.random.randn(N_weights) * 0.5
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
+
+# TODO: Reminder: The state space was wrongly defined previously. Try with new state space
 
 try:
     es.optimize(f, iterations=2000)

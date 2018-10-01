@@ -142,6 +142,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
         model.reset()
 
         reward_predictions = []
+        x_predictions = []
 
         sdiff = torch.zeros(1, env.observation_space.shape[0])
         pred_state = torch.from_numpy(s.astype(np.float32)).unsqueeze(0)
@@ -154,6 +155,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
             # Make prediction
             pred_s, pred_rew = model(torch.cat([torch.from_numpy(s.astype(np.float32)).unsqueeze(0), pred_a], 1))
             reward_predictions.append(pred_rew[0])
+            x_predictions.append(pred_s[0,0])
 
             s, rew, done, info = env.step(pred_a.detach().numpy())
 
@@ -165,9 +167,11 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
 
         # Convert to torch
         rew_pred_tens = torch.stack(reward_predictions)
+        x_pred_tens = torch.stack(x_predictions)
 
         # Calculate loss
-        policy_score = rew_pred_tens.sum()
+        #policy_score = rew_pred_tens.sum()
+        policy_score = x_pred_tens.sum()
 
         # Backprop
         optim_policy.zero_grad()
@@ -196,7 +200,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
 
                 # Predict action from current state
                 with torch.no_grad():
-                    pred_a = policy(torch.from_numpy(s.astype(np.float32)).unsqueeze(0)) + torch.randn(1, env.action_space.shape[0]) * 0.2
+                    pred_a = policy(torch.from_numpy(s.astype(np.float32)).unsqueeze(0)) + torch.randn(1, env.action_space.shape[0]) * 0.3
 
                 # Make prediction
                 pred_s, pred_rew = model(torch.cat([torch.from_numpy(s.astype(np.float32)).unsqueeze(0), pred_a], 1))
@@ -252,7 +256,7 @@ def eval(env, policy):
 def main():
 
     # Create environment
-    env = gym.make("Hopper-v2")
+    env = gym.make("Ant-v3")
     print("Env: {}".format(env.spec.id))
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
@@ -265,7 +269,7 @@ def main():
 
     # Pretrain model on random actions
     t1 = time.time()
-    pretrain_iters = 0
+    pretrain_iters = 100
     pretrain_model(model, env, pretrain_iters, lr=1e-3)
     if pretrain_iters == 0:
         model = torch.load("{}_model.pt".format(env.spec.id))
@@ -275,11 +279,12 @@ def main():
 
     # Train optimization
     opt_iters = 3000
-    train_opt(model, policy, env, opt_iters, animate=True, lr_model=3e-4, lr_policy=1e-3, model_rpts=1)
+    train_opt(model, policy, env, opt_iters, animate=True, lr_model=3e-4, lr_policy=1e-3, model_rpts=10)
 
-    # TODO: BATCH TRAING EVERYTHING. SINGLE EXAMPLE UPDATES TOO NOISY
+    # TODO: BATCH TRAIN EVERYTHING. SINGLE EXAMPLE UPDATES TOO NOISY
     # TODO: TRY WITH AND WITHOUT THE DIFF
     # TODO: CHANGE POLICY TO STOCHASTIC
+    # TODO: RIGHT NOW WE ARE MAXIMIZING STATE 5 which is xdot
 
     print("Finished training, saving")
     torch.save(policy, '{}_policy.pt'.format(env.spec.id))
