@@ -69,7 +69,7 @@ def f(w):
         if animate:
             env.render()
 
-        reward += reward_dir
+        reward += rew
 
     l1_list, t_list, s_list = zip(*joint_activation_list)
     l1_mean, l1_std = np.mean(l1_list), np.std(l1_list)
