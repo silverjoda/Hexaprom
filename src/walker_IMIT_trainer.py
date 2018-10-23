@@ -18,27 +18,15 @@ class Baseline(nn.Module):
     def __init__(self, obs_dim, act_dim):
         super(Baseline, self).__init__()
 
-        self.fc1 = nn.Linear(obs_dim, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, act_dim)
+        self.fc1 = nn.Linear(obs_dim, 6)
+        self.fc2 = nn.Linear(6, 6)
+        self.fc3 = nn.Linear(6, act_dim)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        x = F.dropout(x, p=0.0)
         x = F.relu(self.fc2(x))
-        x = F.dropout(x, p=0.0)
         x = self.fc3(x)
         return x
-
-    def num_flat_features(self, x):
-        size = x.size()[1:]  # all dimensions except the batch dimension
-        num_features = 1
-        for s in size:
-            num_features *= s
-        return num_features
-
-    def reset(self):
-        pass
 
 
 class RNet(nn.Module):
@@ -757,7 +745,6 @@ def evaluate(model, env, iters):
     for i in range(iters):
         obs = env.reset()
         done = False
-        model.reset()
         total_rew = 0
         with torch.no_grad():
             while not done:
@@ -821,10 +808,10 @@ trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Walker2d-v2_
 
 print("Model params: {}, baseline params: {}".format(count_parameters(model), count_parameters(baseline)))
 
-train_imitation(model, baseline, trajectories, 5000)
+train_imitation(model, baseline, trajectories, 7000)
 
 env = gym.make("Walker2d-v2")
 
 print("Evaluating baseline")
-baseline = torch.load('baseline_imit.pt')
+#baseline = torch.load('baseline_imit.pt')
 evaluate(baseline, env, 10)
