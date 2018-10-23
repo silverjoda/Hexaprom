@@ -18,8 +18,8 @@ class Baseline(nn.Module):
     def __init__(self, obs_dim, act_dim):
         super(Baseline, self).__init__()
 
-        self.fc1 = nn.Linear(obs_dim, 96)
-        self.fc2 = nn.Linear(96, 64)
+        self.fc1 = nn.Linear(obs_dim, 64)
+        self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, act_dim)
 
     def forward(self, x):
@@ -768,7 +768,7 @@ def evaluate(model, env, iters):
                 env.render()
             print("EV {}/{}, rew: {}".format(i,iters, total_rew))
 
-def train_imitation(model,baseline, trajectories, iters):
+def train_imitation(model,  baseline, trajectories, iters):
     if iters == 0 or iters == None:
         print("Skipping training")
         return
@@ -780,7 +780,6 @@ def train_imitation(model,baseline, trajectories, iters):
     print("Starting training. Obs dim: {}, Act dim: {}".format(obs_dim, act_dim))
 
     lossfun = nn.MSELoss()
-    rnn_optim = torch.optim.Adam(model.parameters(), lr=7e-3)
     baseline_optim = torch.optim.Adam(baseline.parameters(), lr=3e-3)
 
 
@@ -792,35 +791,21 @@ def train_imitation(model,baseline, trajectories, iters):
         obs_array = torch.from_numpy(np.array(obs_list, dtype=np.float32))
         act_array = torch.from_numpy(np.array(act_list, dtype=np.float32))
 
-        #rnn_pred_list = []
+        baseline_optim.zero_grad()
 
-        # Rollout
-        model.reset()
 
-        rnn_optim.zero_grad()
-        #baseline_optim.zero_grad()
-        # for obs in obs_array:
-        #     rnn_pred_list.append(model(obs.unsqueeze(0)))
-
-        #rnn_preds = torch.cat(rnn_pred_list, 0)
-        rnn_preds = model(obs_array)
-        #baseline_preds = baseline(obs_array)
+        baseline_preds = baseline(obs_array)
 
         # MSE & gradients
-        rnn_loss = lossfun(rnn_preds, act_array)
-        #baseline_loss = lossfun(baseline_preds, act_array)
+        baseline_loss = lossfun(baseline_preds, act_array)
+        baseline_loss.backward()
 
-        rnn_loss.backward()
-        #baseline_loss.backward()
+        baseline_optim.step()
 
-        rnn_optim.step()
-        #baseline_optim.step()
-
-        if i % 10 == 0:
-            print("Iteration: {}/{}, Rnn loss: {}, Baseline loss: {}".format(i, iters, rnn_loss, 0.13))
+        if i % 100 == 0:
+            print("Iteration: {}/{}, Baseline loss: {}".format(i, iters, baseline_loss))
 
     torch.save(baseline, 'baseline_imit.pt')
-    torch.save(model, 'rnn_imit.pt')
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -834,19 +819,12 @@ model = PNet()
 # Load trajectories
 trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Walker2d-v2_rollouts_0", 'rb'))
 
-# TODO: VISUALIZE RNN HIDDEN STATE VALUES AND FIX HIDDEN STATE BLOW UP IF NECESSARY
-# TODO: PERFORM ROLLOUTS OF TRAINED BASELINES AND TRAINED RNN MODELS TO SEE HOW THE RNN DOES
-
 print("Model params: {}, baseline params: {}".format(count_parameters(model), count_parameters(baseline)))
 
 train_imitation(model, baseline, trajectories, 5000)
 
 env = gym.make("Walker2d-v2")
 
-#print("Evaluating baseline")
-#baseline = torch.load('baseline_imit.pt')
-#evaluate(baseline, env, 10)
-#time.sleep(1)
-print("Evaluating Model")
-#model = torch.load('rnn_imit.pt')
-evaluate(model, env, 10)
+print("Evaluating baseline")
+baseline = torch.load('baseline_imit.pt')
+evaluate(baseline, env, 10)

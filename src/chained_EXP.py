@@ -12,15 +12,16 @@ def f(w):
     done = False
     env_obs = env.reset()
     goal_dir = 0 #np.random.rand() * 3.14 * 2 - 3.14
-    xposbefore = env_obs[0]
-    yposbefore = env_obs[1]
-
-    states = [0] * N
 
     joint_activation_list = []
     master_activation_list = []
 
-    #print(goal_dir)
+    # Downstream
+
+
+    # Upstream
+
+
     while not done:
 
         # Observations
@@ -31,7 +32,8 @@ def f(w):
         torques = []
         newstates = []
 
-        obs = list(env_obs[2:3]) + states[0:1]
+        #obs = list(env_obs[2:3]) + states[0:1]
+        obs = [0] + states[0:1]
         l1_m = np.tanh(np.matmul(obs, wdist.get_w('w_m1', w)) + wdist.get_w('b_m1', w))
         mout = np.tanh(np.matmul(l1_m, wdist.get_w('w_m2', w)) + wdist.get_w('b_m2', w))
 
@@ -119,7 +121,6 @@ w = np.random.randn(N_weights) * 0.5
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
 
-# TODO: Plot all intermediate values and activations
 try:
     es.optimize(f, iterations=2000)
 except KeyboardInterrupt:
