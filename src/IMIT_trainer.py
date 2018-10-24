@@ -18,13 +18,13 @@ class Baseline(nn.Module):
     def __init__(self, obs_dim, act_dim):
         super(Baseline, self).__init__()
 
-        self.fc1 = nn.Linear(obs_dim, 6)
-        self.fc2 = nn.Linear(6, 6)
-        self.fc3 = nn.Linear(6, act_dim)
+        self.fc1 = nn.Linear(obs_dim, 8)
+        self.fc2 = nn.Linear(8, 8)
+        self.fc3 = nn.Linear(8, act_dim)
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = F.tanh(self.fc1(x))
+        x = F.tanh(self.fc2(x))
         x = self.fc3(x)
         return x
 
@@ -750,10 +750,11 @@ def evaluate(model, env, iters):
             while not done:
                 obs_t = torch.from_numpy(np.array(obs, dtype=np.float32)).unsqueeze(0)
                 action = model(obs_t).numpy()
-                obs, rew, done, _ = env.step(action + np.random.randn(6) * 0.0)
+                obs, rew, done, _ = env.step(action + np.random.randn(env.action_space.shape[0]) * 0.0)
                 total_rew += rew
                 env.render()
             print("EV {}/{}, rew: {}".format(i,iters, total_rew))
+
 
 def train_imitation(model,  baseline, trajectories, iters):
     if iters == 0 or iters == None:
@@ -797,20 +798,24 @@ def train_imitation(model,  baseline, trajectories, iters):
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+env_name = "Walker2d-v2"
+env = gym.make(env_name)
+
+obs_dim = env.observation_space.shape[0]
+act_dim = env.action_space.shape[0]
+
 # Baseline model
-baseline = Baseline(17, 6)
+baseline = Baseline(obs_dim, act_dim)
 
 # RNN
 model = PNet()
 
 # Load trajectories
-trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/Walker2d-v2_rollouts_0", 'rb'))
+trajectories = pickle.load(open("/home/silverjoda/SW/baselines/data/{}_rollouts_0".format(env_name), 'rb'))
 
 print("Model params: {}, baseline params: {}".format(count_parameters(model), count_parameters(baseline)))
+train_imitation(model, baseline, trajectories, 5000)
 
-train_imitation(model, baseline, trajectories, 7000)
-
-env = gym.make("Walker2d-v2")
 
 print("Evaluating baseline")
 #baseline = torch.load('baseline_imit.pt')

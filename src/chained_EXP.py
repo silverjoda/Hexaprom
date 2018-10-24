@@ -16,12 +16,6 @@ def f(w):
     joint_activation_list = []
     master_activation_list = []
 
-    # Downstream
-
-
-    # Upstream
-
-
     while not done:
 
         # Observations

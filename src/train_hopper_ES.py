@@ -1,7 +1,9 @@
 import numpy as np
 import gym
 import cma
-np.random.seed(0)
+from weight_distributor import Wdist
+from time import sleep
+import quaternion
 
 # the function we want to optimize
 def f(w):
@@ -9,56 +11,61 @@ def f(w):
     reward = 0
     done = False
     env_obs = env.reset()
-    prev_torques = [0,0,0]
 
     while not done:
 
-        # Make actions:
-
-        mult = 3
-
-        # Oscillator 0
-        o0 = list(env_obs) + prev_torques
-        t0 = mult * np.tanh(np.matmul(o0, w[0:n1].reshape((14,1))))
-
-        # Oscillator 1
-        o1 = list(env_obs) + prev_torques
-        t1 = mult * np.tanh(np.matmul(o1, w[n1:n1 + n2].reshape((14,1))))
-
-        # Oscillator 2
-        o2 = list(env_obs) + prev_torques
-        t2 = mult * np.tanh(np.matmul(o2, w[n1 + n2:].reshape((14,1))))
+        # Observations
+        l1 = np.tanh(np.matmul(np.asarray(env_obs), wdist.get_w('w_l1', w)) + wdist.get_w('b_l1', w))
+        l2 = np.tanh(np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w))
+        l3 = np.matmul(l2, wdist.get_w('w_l3', w)) + wdist.get_w('b_l3', w)
 
         # Step environment
-        env_obs, rew, done, _ = env.step([t0, t1, t2])
+        env_obs, rew, done, _ = env.step(l3)
 
         if animate:
             env.render()
 
         reward += rew
-        prev_torques = [t0, t1, t2]
 
     return -reward
 
 # Make environment
 env = gym.make("Hopper-v2")
-animate = False
+print("Action space: {}, observation space: {}".format(env.action_space.shape, env.observation_space.shape))
+animate = True
+
+N = env.action_space.shape[0]
 
 # Generate weights
-n1 = (14 * 1)
-n2 = (14 * 1)
-n3 = (14 * 1)
+wdist = Wdist()
 
-N_weights = n1 + n2 + n3
-W_MULT = 0.3
-w = np.random.randn(N_weights) * W_MULT
+afun = np.tanh
+actfun = lambda x:x
+
+print("afun: {}".format(afun))
+
+wdist.addW((11, 6), 'w_l1')
+wdist.addW((6,), 'b_l1')
+
+wdist.addW((6, 6), 'w_l2')
+wdist.addW((6,), 'b_l2')
+
+wdist.addW((6, 3), 'w_l3')
+wdist.addW((3,), 'b_l3')
+
+
+N_weights = wdist.get_N()
+print("Nweights: {}".format(N_weights))
+w = np.random.randn(N_weights) * 0.5
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
+
 try:
-    es.optimize(f, iterations=10000)
+    es.optimize(f, iterations=2000)
 except KeyboardInterrupt:
     print("User interrupted process.")
 es.result_pretty()
 
+print(es.result.xbest, es.result.fbest, sep=',', file=open("hopper_weights.txt", "a"))
 
-print(es.result.xbest, file=open("hopper_weights.txt", "a"))
+
