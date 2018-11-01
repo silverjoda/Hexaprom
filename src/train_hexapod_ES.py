@@ -5,6 +5,10 @@ from weight_distributor import Wdist
 from time import sleep
 import quaternion
 
+def relu(x):
+    return np.maximum(x,0)
+
+
 # the function we want to optimize
 def f(w):
 
@@ -13,6 +17,7 @@ def f(w):
     env_obs = env.reset()
 
     while not done:
+        #env_obs = np.concatenate((env_obs[5:17],env_obs[23:]))
 
         # Observations
         l1 = np.tanh(np.matmul(np.asarray(env_obs), wdist.get_w('w_l1', w)) + wdist.get_w('b_l1', w))
@@ -30,7 +35,7 @@ def f(w):
     return -reward
 
 # Make environment
-env = gym.make("Hopper-v2")
+env = gym.make("Hexapod-v0")
 print("Action space: {}, observation space: {}".format(env.action_space.shape, env.observation_space.shape))
 animate = True
 
@@ -44,23 +49,25 @@ actfun = lambda x:x
 
 print("afun: {}".format(afun))
 
-wdist.addW((11, 6), 'w_l1')
-wdist.addW((6,), 'b_l1')
+wdist.addW((47, 8), 'w_l1')
+wdist.addW((8,), 'b_l1')
 
-wdist.addW((6, 6), 'w_l2')
-wdist.addW((6,), 'b_l2')
+wdist.addW((8, 8), 'w_l2')
+wdist.addW((8,), 'b_l2')
 
-wdist.addW((6, 3), 'w_l3')
-wdist.addW((3,), 'b_l3')
+wdist.addW((8, 18), 'w_l3')
+wdist.addW((18,), 'b_l3')
 
 N_weights = wdist.get_N()
 print("Nweights: {}".format(N_weights))
-w = np.random.randn(N_weights) * 0.5
+w = np.random.randn(N_weights)
 
+
+print("Comments: relu")
 es = cma.CMAEvolutionStrategy(w, 0.5)
 
 try:
-    es.optimize(f, iterations=2000)
+    es.optimize(f, iterations=7000)
 except KeyboardInterrupt:
     print("User interrupted process.")
 es.result_pretty()
