@@ -21,11 +21,11 @@ def f(w):
 
         # Observations
         l1 = np.tanh(np.matmul(np.asarray(env_obs), wdist.get_w('w_l1', w)) + wdist.get_w('b_l1', w))
-        l2 = np.tanh(np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w))
-        l3 = np.matmul(l2, wdist.get_w('w_l3', w)) + wdist.get_w('b_l3', w)
+        #l2 = np.tanh(np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w))
+        #l3 = np.matmul(l2, wdist.get_w('w_l3', w)) + wdist.get_w('b_l3', w)
 
         # Step environment
-        env_obs, rew, done, _ = env.step(l3)
+        env_obs, rew, done, _ = env.step(l1)
 
         if animate:
             env.render()
@@ -49,21 +49,21 @@ actfun = lambda x:x
 
 print("afun: {}".format(afun))
 
-wdist.addW((47, 8), 'w_l1')
-wdist.addW((8,), 'b_l1')
-
-wdist.addW((8, 8), 'w_l2')
-wdist.addW((8,), 'b_l2')
-
-wdist.addW((8, 18), 'w_l3')
-wdist.addW((18,), 'b_l3')
+wdist.addW((47, 18), 'w_l1')
+wdist.addW((18,), 'b_l1')
+#
+# wdist.addW((8, 8), 'w_l2')
+# wdist.addW((8,), 'b_l2')
+#
+# wdist.addW((8, 18), 'w_l3')f
+# wdist.addW((18,), 'b_l3')
 
 N_weights = wdist.get_N()
 print("Nweights: {}".format(N_weights))
 w = np.random.randn(N_weights)
 
 
-print("Comments: relu")
+print("Comments: contact cost")
 es = cma.CMAEvolutionStrategy(w, 0.5)
 
 try:

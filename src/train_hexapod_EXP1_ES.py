@@ -68,7 +68,7 @@ def f(w):
     return -reward
 
 # Make environment
-env = gym.make("DartHexapod-v1")
+env = gym.make("Hexapod-v0")
 env.reset()
 print("Action space: {}, observation space: {}".format(env.action_space.shape, env.observation_space.shape))
 animate = True
@@ -77,12 +77,12 @@ N = env.action_space.shape[0]
 
 x_batch = []
 
-for i in range(32):
-    obs, rew, done, _ = env.step(env.action_space.sample())
-    x_batch.append(obs)
+# for i in range(32):
+#     obs, rew, done, _ = env.step(env.action_space.sample())
+#     x_batch.append(obs)
 
 ctr = 0
-while False:
+while True:
     obs, _, _, _ = env.step(env.action_space.sample())
     if np.random.rand() < 0.05:
         env.reset()
@@ -125,7 +125,7 @@ wdist.fill_w('l1_beta', w, 0)
 wdist.fill_w('l2_gamma', w, 1)
 wdist.fill_w('l2_beta', w, 0)
 
-print("Comments: batchnorm")
+print("Comments: batchnorm, second batch gen strategy")
 es = cma.CMAEvolutionStrategy(w, 0.5)
 
 try:
