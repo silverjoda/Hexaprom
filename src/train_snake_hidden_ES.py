@@ -31,7 +31,10 @@ def f_wrapper(env, wdist, animate):
         return -reward
     return f
 
-def train(env_name, iters, n_hidden, animate=False):
+def train(params):
+
+    env_name, iters, n_hidden, animate = params
+
     env = gym.make(env_name)
     print("Env: {} Action space: {}, observation space: {}".format(env_name, env.action_space.shape,
                                                                    env.observation_space.shape))
@@ -58,14 +61,28 @@ def train(env_name, iters, n_hidden, animate=False):
     except KeyboardInterrupt:
         print("User interrupted process.")
 
-    return es
+    return es.result.fbest
 
 env_name = "SwimmerLong-v0"
 
-for i in range(10):
-    for j in range(10):
-        pass
-es = train(env_name=env_name, iters=5, n_hidden=5, animate=False)
+params = []
+reps = 3
+hidden_max = 6
+for h in range(hidden_max):
+    for _ in range(reps):
+        params.append((env_name, 400, h + 1, False))
+
+from multiprocessing.dummy import Pool as ThreadPool
+pool = ThreadPool(1)
+results = pool.map(train, params)
+
+print(results)
+
+n_hid = []
+for h in range(hidden_max):
+    n_hid.append(np.mean(results[h*reps:h*reps + reps]))
+
+print("Results for hidden layers 1-{}: {}".format(hidden_max, n_hid))
 
 #print(es.result.xbest, es.result.fbest, sep=',', file=open("hopper_weights.txt", "a"))
 
