@@ -15,12 +15,12 @@ def f(w):
     while not done:
 
         # Observations
-        l1 = np.matmul(np.asarray(env_obs), wdist.get_w('w_l1', w)) + wdist.get_w('b_l1', w)
-        #l2 = np.tanh(np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w))
+        l1 = np.tanh(np.matmul(np.asarray(env_obs), wdist.get_w('w_l1', w)) + wdist.get_w('b_l1', w))
+        l2 = np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w)
         #l3 = np.matmul(l2, wdist.get_w('w_l3', w)) + wdist.get_w('b_l3', w)
 
         # Step environment
-        env_obs, rew, done, _ = env.step(l1)
+        env_obs, rew, done, _ = env.step(l2)
 
         if animate:
             env.render()
@@ -31,9 +31,10 @@ def f(w):
 
 # Make environment
 import roboschool
-env = gym.make("Humanoid-v2")
-print("Action space: {}, observation space: {}".format(env.action_space.shape, env.observation_space.shape))
-animate = True
+envname = "SwimmerLong-v0"
+env = gym.make(envname)
+print("Env: {} Action space: {}, observation space: {}".format(envname, env.action_space.shape, env.observation_space.shape))
+animate = False
 
 N = env.action_space.shape[0]
 
@@ -45,11 +46,13 @@ actfun = lambda x:x
 
 print("afun: {}".format(afun))
 
-wdist.addW((env.observation_space.shape[0], env.action_space.shape[0]), 'w_l1')
-wdist.addW((env.action_space.shape[0],), 'b_l1')
+n_hidden = 5
 
-# wdist.addW((6, 6), 'w_l2')
-# wdist.addW((6,), 'b_l2')
+wdist.addW((env.observation_space.shape[0], 1), 'w_l1')
+wdist.addW((n_hidden,), 'b_l1')
+
+wdist.addW((n_hidden, env.action_space.shape[0]), 'w_l2')
+wdist.addW((env.action_space.shape[0],), 'b_l2')
 #
 # wdist.addW((6, 3), 'w_l3')
 # wdist.addW((3,), 'b_l3')
@@ -60,7 +63,7 @@ w = np.random.randn(N_weights)
 
 es = cma.CMAEvolutionStrategy(w, 0.5)
 
-print("Comments: ...")
+print("Comments: {}".format(n_hidden))
 
 try:
     es.optimize(f, iterations=2000)
