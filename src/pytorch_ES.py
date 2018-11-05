@@ -102,27 +102,9 @@ def _check_param_device(param, old_param_device):
                             'this is currently not supported.')
     return old_param_device
 
-def _gather_flat_grad(self):
-    views = []
-    for p in self._params:
-        if p.grad is None:
-            view = p.data.new(p.data.numel()).zero_()
-        elif p.grad.data.is_sparse:
-            view = p.grad.data.to_dense().view(-1)
-        else:
-            view = p.grad.data.view(-1)
-        views.append(view)
-    return torch.cat(views, 0)
-
-def _add_grad(self, step_size, update):
-    offset = 0
-    for p in self._params:
-        numel = p.numel()
-        # view as to avoid deprecated pointwise semantics
-        p.data.add_(step_size, update[offset:offset + numel].view_as(p.data))
-        offset += numel
-    assert offset == self._numel()
 
 model = Model(10, 6)
-initial_params = model.parameters()
-sd = model.state_dict()
+w = parameters_to_vector(model.parameters())
+params = vector_to_parameters(w, model.parameters())
+pass
+# 80 + 8 + 64 + 8 + 48 + 6 = 214
