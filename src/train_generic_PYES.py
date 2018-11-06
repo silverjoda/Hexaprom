@@ -36,7 +36,7 @@ def f_wrapper(env, policy, animate):
                 act = policy(torch.from_numpy(np.expand_dims(obs, 0)))[0].numpy()
 
             # Step environment
-            env_obs, rew, done, _ = env.step(act)
+            obs, rew, done, _ = env.step(act)
 
             if animate:
                 env.render()
