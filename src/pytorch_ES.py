@@ -20,13 +20,6 @@ class Model(nn.Module):
         return x
 
 
-def model_to_w(model):
-
-    pass
-
-def w_to_model(w, model):
-    pass
-
 def parameters_to_vector(parameters):
     r"""Convert parameters to one vector
     Arguments:
@@ -36,12 +29,12 @@ def parameters_to_vector(parameters):
         The parameters represented by a single vector
     """
     # Flag for the device where the parameter is located
-    param_device = None
+    #param_device = None
 
     vec = []
     for param in parameters:
         # Ensure the parameters are located in the same device
-        param_device = _check_param_device(param, param_device)
+        #param_device = _check_param_device(param, param_device)
 
         vec.append(param.view(-1))
     return torch.cat(vec)
@@ -59,13 +52,13 @@ def vector_to_parameters(vec, parameters):
         raise TypeError('expected torch.Tensor, but got: {}'
                         .format(torch.typename(vec)))
     # Flag for the device where the parameter is located
-    param_device = None
+    #param_device = None
 
     # Pointer for slicing the vector for each parameter
     pointer = 0
     for param in parameters:
         # Ensure the parameters are located in the same device
-        param_device = _check_param_device(param, param_device)
+        #param_device = _check_param_device(param, param_device)
 
         # The length of the parameter
         num_param = param.numel()
@@ -74,6 +67,7 @@ def vector_to_parameters(vec, parameters):
 
         # Increment the pointer
         pointer += num_param
+
 
 def _check_param_device(param, old_param_device):
     r"""This helper function is to check if the parameters are located
@@ -103,8 +97,7 @@ def _check_param_device(param, old_param_device):
     return old_param_device
 
 
-model = Model(10, 6)
-w = parameters_to_vector(model.parameters())
-params = vector_to_parameters(w, model.parameters())
-pass
-# 80 + 8 + 64 + 8 + 48 + 6 = 214
+if __name__=="__main__":
+    model = Model(10, 6)
+    w = parameters_to_vector(model.parameters())
+    vector_to_parameters(w, model.parameters())

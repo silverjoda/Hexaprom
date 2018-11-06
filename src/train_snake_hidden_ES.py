@@ -7,6 +7,7 @@ import quaternion
 import roboschool
 
 
+
 def f_wrapper(env, wdist, animate):
     def f(w):
         reward = 0
@@ -17,11 +18,11 @@ def f_wrapper(env, wdist, animate):
 
             # Observations
             l1 = np.tanh(np.matmul(np.asarray(env_obs), wdist.get_w('w_l1', w)) + wdist.get_w('b_l1', w))
-            l2 = np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w)
+            #l2 = np.matmul(l1, wdist.get_w('w_l2', w)) + wdist.get_w('b_l2', w)
             #l3 = np.matmul(l2, wdist.get_w('w_l3', w)) + wdist.get_w('b_l3', w)
 
             # Step environment
-            env_obs, rew, done, _ = env.step(l2)
+            env_obs, rew, done, _ = env.step(l1)
 
             if animate:
                 env.render()
@@ -42,11 +43,11 @@ def train(params):
     # Generate weight object
     wdist = Wdist()
 
-    wdist.addW((env.observation_space.shape[0], 1), 'w_l1')
-    wdist.addW((n_hidden,), 'b_l1')
+    wdist.addW((env.observation_space.shape[0], 7), 'w_l1')
+    wdist.addW((7,), 'b_l1')
 
-    wdist.addW((n_hidden, env.action_space.shape[0]), 'w_l2')
-    wdist.addW((env.action_space.shape[0],), 'b_l2')
+    #wdist.addW((n_hidden, env.action_space.shape[0]), 'w_l2')
+    #wdist.addW((env.action_space.shape[0],), 'b_l2')
 
     N_weights = wdist.get_N()
     print("Nweights: {}".format(N_weights))
@@ -64,6 +65,8 @@ def train(params):
     return es.result.fbest
 
 env_name = "SwimmerLong-v0"
+train((env_name, 1000, 5, True))
+exit()
 
 params = []
 reps = 3
