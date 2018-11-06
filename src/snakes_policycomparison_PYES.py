@@ -102,22 +102,22 @@ class RPolicy(nn.Module):
         jd = x[:, 12:]
         jcat = torch.cat([j,jd], 1).unsqueeze(1) # Concatenate j and jd so that they are 2 parallel channels
 
+        h = torch.zeros(1, 2).float()
+
         h_up = []
         for i in range(7):
-            self.h = self.rnn(jcat[i], self.h)
-            h_up.append(self.h)
+            h = self.rnn(jcat[i], h)
+            h_up.append(h)
 
-        emb = self.fc_obs(torch.cat((self.obs, )))
+        h = self.fc_obs(torch.cat((obs, h), 1))
 
+        acts = []
         for i in range(7):
-            self.h = self.rnn(jcat[i], self.h)
-            h_up.append(self.h)
+            h = self.rnn(h_up[i], h)
+            acts.append(self.fc_out(h))
 
-        return x
+        return torch.stack(acts, 1)
 
-
-    def reset(self, batchsize=1):
-        self.h = torch.zeros(batchsize, self.n_hid).float()
 
 def f_wrapper(env, policy, animate):
     def f(w):
