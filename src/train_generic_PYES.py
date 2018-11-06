@@ -9,9 +9,9 @@ import torch.nn.functional as F
 import pytorch_ES
 
 
-class Policy(nn.Module):
+class Baseline(nn.Module):
     def __init__(self, obs_dim, act_dim):
-        super(Policy, self).__init__()
+        super(Baseline, self).__init__()
 
         self.fc1 = nn.Linear(obs_dim, act_dim)
 
@@ -87,6 +87,38 @@ class SPolicy(nn.Module):
         return j_out
 
 
+class RPolicy(nn.Module):
+    def __init__(self):
+        super(RPolicy, self).__init__()
+
+        self.r_up = nn.GRUCell(2, 2)
+        self.fc_obs = nn.Linear(6, 2)
+        self.r_down = nn.GRUCell(2, 2)
+        self.fc_out = nn.Linear(2, 1)
+
+    def forward(self, x):
+        obs = x[:, :5]
+        j = x[:, 5:12]
+        jd = x[:, 12:]
+        jcat = torch.cat([j,jd], 1).unsqueeze(1) # Concatenate j and jd so that they are 2 parallel channels
+
+        h_up = []
+        for i in range(7):
+            self.h = self.rnn(jcat[i], self.h)
+            h_up.append(self.h)
+
+        emb = self.fc_obs(torch.cat((self.obs, )))
+
+        for i in range(7):
+            self.h = self.rnn(jcat[i], self.h)
+            h_up.append(self.h)
+
+        return x
+
+
+    def reset(self, batchsize=1):
+        self.h = torch.zeros(batchsize, self.n_hid).float()
+
 def f_wrapper(env, policy, animate):
     def f(w):
         reward = 0
@@ -125,7 +157,7 @@ def train(params):
     env = gym.make(env_name)
 
     obs_dim, act_dim = env.observation_space.shape[0], env.action_space.shape[0]
-    policy = Policy(obs_dim, act_dim)
+    policy = Baseline(obs_dim, act_dim)
     w = pytorch_ES.parameters_to_vector(policy.parameters()).detach().numpy()
     es = cma.CMAEvolutionStrategy(w, 0.5)
     f = f_wrapper(env, policy, animate)
