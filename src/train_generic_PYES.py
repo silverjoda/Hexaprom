@@ -34,26 +34,57 @@ class CPolicy(nn.Module):
         self.deconv2 = nn.ConvTranspose1d(in_channels=1, out_channels=1, kernel_size=3, stride=2)
 
     def forward(self, x):
-        obs = x[:, :5]
-        j = x[:, 5:12]
-        jd = x[:, 12:]
+        obs = x[:, :4]
+        j = x[:, 4:11]
+        jd = x[:, 11:]
         jcat = torch.cat([j,jd], 1).unsqueeze(1) # Concatenate j and jd so that they are 2 parallel channels
 
-        fc_obs = self.fc_obs(obs)
+        fc_obs = F.relu(self.fc_obs(obs))
 
-        fm = self.conv1(jcat)
-        fm = self.conv2(fm)
+        fm = F.relu(self.conv1(jcat))
+        fm = F.relu(self.conv2(fm))
         fm = fm.squeeze(1)
 
-        fc_emb = self.fc_emb(fc_obs + fm)
+        fc_emb = F.relu(self.fc_emb(fc_obs + fm))
         fc_emb = fc_emb.unsqueeze(1)
 
-        fm = self.deconv1(fc_emb)
+        fm = F.relu(self.deconv1(fc_emb))
         fm = self.deconv2(fm)
 
         x = fm
 
         return x
+
+
+class SPolicy(nn.Module):
+    def __init__(self):
+        super(SPolicy, self).__init__()
+
+        self.fc_ji = nn.Linear(2, 2)
+        self.fc_e = nn.Linear(6, 2)
+        self.fc_jo = nn.Linear(2, 1)
+
+
+    def forward(self, x):
+        obs = x[:, :5]
+        j = x[:, 5:12]
+        jd = x[:, 12:]
+        jcat = torch.cat([j,jd], 1).unsqueeze(1) # Concatenate j and jd so that they are 2 parallel channels
+
+        j_in = torch.zeros((1,2))
+        for i in range(7):
+            j_in += self.fc_j1(jcat[:, i])
+
+        j_in = F.relu(j_in)
+        emb = F.relu(self.fc_e(torch.cat([obs, j_in], 1)))
+
+        j_out = []
+        for i in range(7):
+            j_out.append(self.fc_jo(emb + jcat[i]))
+
+        j_out = torch.stack(j_out, 1)
+
+        return j_out
 
 
 def f_wrapper(env, policy, animate):
@@ -84,6 +115,7 @@ def f_wrapper(env, policy, animate):
 
         return -reward
     return f
+
 
 def train(params):
 
