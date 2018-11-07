@@ -20,9 +20,9 @@ class Baseline(nn.Module):
         return x
 
 
-class CPolicy(nn.Module):
+class ConvPolicy(nn.Module):
     def __init__(self):
-        super(CPolicy, self).__init__()
+        super(ConvPolicy, self).__init__()
 
         self.fc_obs = nn.Linear(4, 2)
         self.fc_emb = nn.Linear(2, 2)
@@ -56,9 +56,9 @@ class CPolicy(nn.Module):
         return x
 
 
-class SPolicy(nn.Module):
+class SymPolicy(nn.Module):
     def __init__(self):
-        super(SPolicy, self).__init__()
+        super(SymPolicy, self).__init__()
 
         self.fc_ji = nn.Linear(2, 2)
         self.fc_e = nn.Linear(6, 2)
@@ -87,9 +87,9 @@ class SPolicy(nn.Module):
         return j_out
 
 
-class RPolicy(nn.Module):
+class RecPolicy(nn.Module):
     def __init__(self):
-        super(RPolicy, self).__init__()
+        super(RecPolicy, self).__init__()
 
         self.r_up = nn.GRUCell(2, 2)
         self.fc_obs = nn.Linear(6, 2)
@@ -118,6 +118,43 @@ class RPolicy(nn.Module):
 
         return torch.stack(acts, 1)
 
+
+class AggregPolicy(nn.Module):
+    def __init__(self):
+        super(AggregPolicy, self).__init__()
+
+        self.fc_j_init = nn.Linear(2, 4)
+        self.fc_m_init = nn.Linear(4, 4)
+        self.rnn_j = nn.GRUCell(4, 4)
+        self.rnn_m = nn.GRUCell(4, 4)
+        self.fc_act = nn.Linear(4, 1)
+
+
+    def forward(self, x):
+        obs = x[:, :5]
+        j = x[:, 5:12]
+        jd = x[:, 12:]
+        jcat = torch.cat([j,jd], 1).unsqueeze(1) # Concatenate j and jd so that they are 2 parallel channels
+
+        h_j_list = [self.fc_init(jcat[:, i]) for i in range(7)]
+        h_m = self.fc_m_init(obs)
+
+        # 7 iterations
+        for _ in range(7):
+            h_m_new = self.rnn_m(h_j_list[0], h_m)
+
+            h_j_new_list = [self.rnn_j(torch.cat((h_m, h_j_list[1]), 1), h_j_list[0])]
+            # Go over each non-master joint
+            for i in range(1,6):
+                h_j_new_list.append(self.rnn_j(torch.cat((h_j_list[i-1], h_j_list[i+1]), 1), h_j_list[i]))
+            h_j_new_list.append(self.rnn_j(h_j_list[5], h_j_list[-1]))
+
+            h_m = h_m_new
+            h_j_list = h_j_new_list
+
+        acts = torch.stack([self.fc_act(h for h in h_j_list)], 1)
+
+        return acts
 
 def f_wrapper(env, policy, animate):
     def f(w):
