@@ -10,10 +10,10 @@ import pytorch_ES
 
 
 class Baseline(nn.Module):
-    def __init__(self, obs_dim, act_dim):
+    def __init__(self):
         super(Baseline, self).__init__()
 
-        self.fc1 = nn.Linear(obs_dim, act_dim)
+        self.fc1 = nn.Linear(18, 7)
 
     def forward(self, x):
         x = F.tanh(self.fc1(x))
@@ -156,6 +156,7 @@ class AggregPolicy(nn.Module):
 
         return acts
 
+
 def f_wrapper(env, policy, animate):
     def f(w):
         reward = 0
@@ -188,31 +189,56 @@ def f_wrapper(env, policy, animate):
 
 def train(params):
 
-    env_name, iters, n_hidden, animate = params
+    env_name, policyfun, iters, animate = params
 
     # Make environment
     env = gym.make(env_name)
 
+    # Get environment dimensions
     obs_dim, act_dim = env.observation_space.shape[0], env.action_space.shape[0]
-    policy = Baseline(obs_dim, act_dim)
+
+    # Make policy
+    policy = policyfun()
+
+    # Make initial weight vectors from policy
     w = pytorch_ES.parameters_to_vector(policy.parameters()).detach().numpy()
+
+    # Make optimization objective
     es = cma.CMAEvolutionStrategy(w, 0.5)
+
+    # Make criterial function
     f = f_wrapper(env, policy, animate)
 
+    # Print information
     print("Env: {} Action space: {}, observation space: {}, N_params: {}, comments: ...".format(env_name, env.action_space.shape,
                                                                                   env.observation_space.shape, len(w)))
 
+    # Optimize
+    it = 0
     try:
         while not es.stop():
             X = es.ask()
             es.tell(X, [f(x) for x in X])
             es.disp()
+
+            if it > iters:
+                break
+            else:
+                it += 1
+
     except KeyboardInterrupt:
         print("User interrupted process.")
 
-    return es.result.fbest
+    return -es.result.fbest
 
 env_name = "SwimmerLong-v0"
-train((env_name, 1000, 7, True))
+policyfunctions = [Baseline, ConvPolicy, SymPolicy, RecPolicy, AggregPolicy]
+
+for p in policyfunctions:
+    print("Training with {} policy.".format(p.__name__))
+    fbest = train((env_name, p, 1000, False))
+    print("Policy {} max score: {}".format(p.__name__, fbest))
+
+print("Done, exiting.")
 exit()
 
