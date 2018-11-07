@@ -135,23 +135,23 @@ class AggregPolicy(nn.Module):
         jd = x[:, 11:]
         jcat = T.cat([j.unsqueeze(1), jd.unsqueeze(1)], 1)  # Concatenate j and jd so that they are 2 parallel channels
 
-        h_j_list = [self.fc_j_init(jcat[:, i]) for i in range(7)]
+        h_j_list = [self.fc_j_init(jcat[:, :, i]) for i in range(7)]
         h_m = self.fc_m_init(obs)
 
         # 7 iterations
         for _ in range(7):
             h_m_new = self.rnn_m(h_j_list[0], h_m)
 
-            h_j_new_list = [self.rnn_j(T.cat((h_m, h_j_list[1]), 1), h_j_list[0])]
+            h_j_new_list = [self.rnn_j(h_m + h_j_list[1], h_j_list[0])]
             # Go over each non-master joint
-            for i in range(1,6):
-                h_j_new_list.append(self.rnn_j(T.cat((h_j_list[i-1], h_j_list[i+1]), 1), h_j_list[i]))
-            h_j_new_list.append(self.rnn_j(h_j_list[5], h_j_list[-1]))
+            for i in range(1, 6):
+                h_j_new_list.append(self.rnn_j(h_j_list[i-1] + h_j_list[i+1], h_j_list[i]))
+            h_j_new_list.append(self.rnn_j(h_j_list[5], h_j_list[6]))
 
             h_m = h_m_new
             h_j_list = h_j_new_list
 
-        acts = T.stack([self.fc_act(h for h in h_j_list)], 1)
+        acts = T.cat([self.fc_act(h) for h in h_j_list], 1)
 
         return acts
 
