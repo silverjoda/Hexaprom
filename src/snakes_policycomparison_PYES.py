@@ -103,10 +103,13 @@ class RecPolicy(nn.Module):
     def __init__(self):
         super(RecPolicy, self).__init__()
 
-        self.r_up = nn.GRUCell(2, 2)
-        self.fc_obs = nn.Linear(6, 2)
-        self.r_down = nn.GRUCell(2, 2)
-        self.fc_out = nn.Linear(2, 1)
+        self.r_up = nn.GRUCell(2, 4)
+        self.fc_obs_1 = nn.Linear(8, 4)
+        self.fc_obs_2 = nn.Linear(4, 4)
+        self.r_down = nn.GRUCell(4, 4)
+        self.fc_out = nn.Linear(5, 1)
+
+        self.afun = F.tanh
 
     def forward(self, x):
         obs = x[:, :4]
@@ -114,19 +117,19 @@ class RecPolicy(nn.Module):
         jd = x[:, 11:]
         jcat = T.cat([j.unsqueeze(1), jd.unsqueeze(1)], 1)  # Concatenate j and jd so that they are 2 parallel channels
 
-        h = T.zeros(1, 2).double()
+        h = T.zeros(1, 4).double()
 
         h_up = []
         for i in reversed(range(7)):
             h = self.r_up(jcat[:, :, i], h)
             h_up.append(h)
 
-        h = self.fc_obs(T.cat((obs, h), 1))
+        h = self.afun(self.fc_obs_2(self.afun(self.fc_obs_1(T.cat((obs, h), 1)))))
 
         acts = []
         for i in range(7):
             h = self.r_down(h_up[i], h)
-            acts.append(self.fc_out(h))
+            acts.append(self.fc_out(T.cat((h, j[:,i:i+1]),1)))
 
         return T.cat(acts, 1)
 
@@ -245,7 +248,7 @@ def train(params):
 
 env_name = "SwimmerLong-v0"
 #policyfunctions = [Baseline, ConvPolicy, SymPolicy, RecPolicy, AggregPolicy]
-policyfunctions = [SymPolicy]
+policyfunctions = [RecPolicy]
 
 for p in policyfunctions:
     print("Training with {} policy.".format(p.__name__))
