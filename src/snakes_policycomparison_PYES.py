@@ -124,7 +124,7 @@ class RecPolicy(nn.Module):
             h = self.r_up(jcat[:, :, i], h)
             h_up.append(h)
 
-        h = self.afun(self.fc_obs_2(self.afun(self.fc_obs_1(T.cat((obs, h), 1)))))
+        h = self.afun(self.fc_obs_2(self.afun(self.fc_obs_1(T.cat((obs, h), 1))))) #
 
         acts = []
         for i in range(7):
