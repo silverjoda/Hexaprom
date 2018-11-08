@@ -16,7 +16,7 @@ class Baseline(nn.Module):
         self.fc1 = nn.Linear(18, 7)
 
     def forward(self, x):
-        x = nn.tanh(self.fc1(x))
+        x = T.tanh(self.fc1(x))
         return x
 
 
@@ -24,14 +24,23 @@ class ConvPolicy(nn.Module):
     def __init__(self):
         super(ConvPolicy, self).__init__()
 
-        self.fc_emb = nn.Linear(6, 2)
+        self.fc_emb = nn.Linear(8, 4)
+        self.fc_emb_2 = nn.Linear(4, 4)
 
-        self.conv1 = nn.Conv1d(in_channels=2, out_channels=1, kernel_size=3, stride=2)
-        self.conv2 = nn.Conv1d(in_channels=1, out_channels=1, kernel_size=2, stride=1)
+        self.conv1 = nn.Conv1d(in_channels=2, out_channels=2, kernel_size=3, stride=2)
+        self.conv2 = nn.Conv1d(in_channels=2, out_channels=4, kernel_size=3, stride=1)
 
-        self.deconv1 = nn.ConvTranspose1d(in_channels=1, out_channels=1, kernel_size=2, stride=1)
-        self.deconv2 = nn.ConvTranspose1d(in_channels=1, out_channels=1, kernel_size=3, stride=2)
-        self.deconv3 = nn.ConvTranspose1d(in_channels=2, out_channels=1, kernel_size=1, stride=1)
+        self.deconv1 = nn.ConvTranspose1d(in_channels=4, out_channels=2, kernel_size=3, stride=1)
+        self.deconv2 = nn.ConvTranspose1d(in_channels=4, out_channels=1, kernel_size=3, stride=2)
+
+        nn.init.xavier_uniform_(self.conv1.weight)
+        nn.init.xavier_uniform_(self.conv2.weight)
+        nn.init.xavier_uniform_(self.deconv1.weight)
+        nn.init.xavier_uniform_(self.deconv2.weight)
+
+        self.pool = nn.AdaptiveAvgPool1d(1)
+
+        self.afun = F.tanh
 
     def forward(self, x):
         obs = x[:, :4]
@@ -39,16 +48,16 @@ class ConvPolicy(nn.Module):
         jd = x[:, 11:]
         jcat = T.cat([j.unsqueeze(1) ,jd.unsqueeze(1)], 1) # Concatenate j and jd so that they are 2 parallel channels
 
-        fm = T.tanh(self.conv1(jcat))
-        fm = T.tanh(self.conv2(fm))
-        fm = fm.squeeze(1)
+        fm_c1 = self.afun(self.conv1(jcat))
+        fm_c2 = self.afun(self.conv2(fm_c1))
+        fm = fm_c2.squeeze(2)
 
-        fc_emb = T.tanh(self.fc_emb(T.cat((obs, fm), 1)))
-        fc_emb = fc_emb.unsqueeze(1)
+        fc_emb = self.afun(self.fc_emb(T.cat((obs, fm), 1)))
+        fc_emb = self.afun(self.fc_emb_2(fc_emb))
+        fc_emb = fc_emb.unsqueeze(2)
 
-        fm = T.tanh(self.deconv1(fc_emb))
-        fm = self.deconv2(fm)
-        fm = self.deconv3(T.cat((fm, j.unsqueeze(1)), 1))
+        fm = self.afun(self.deconv1(fc_emb))
+        fm = self.deconv2(T.cat((fm, fm_c1), 1))
 
         x = fm.unsqueeze(1)
 
@@ -59,10 +68,13 @@ class SymPolicy(nn.Module):
     def __init__(self):
         super(SymPolicy, self).__init__()
 
-        self.fc_ji = nn.Linear(2, 2)
-        self.fc_e = nn.Linear(6, 2)
-        self.fc_jo = nn.Linear(2, 1)
+        self.fc_ji_1 = nn.Linear(2, 2)
+        self.fc_ji_2_list = [nn.Linear(2, 4).double() for _ in range(7)]
+        self.fc_e_1 = nn.Linear(8, 4)
+        self.fc_e_2 = nn.Linear(4, 2)
+        self.fc_jo_list = [nn.Linear(2, 1).double() for _ in range(7)]
 
+        self.afun = F.tanh
 
     def forward(self, x):
         obs = x[:, :4]
@@ -70,16 +82,17 @@ class SymPolicy(nn.Module):
         jd = x[:, 11:]
         jcat = T.cat([j.unsqueeze(1), jd.unsqueeze(1)], 1)  # Concatenate j and jd so that they are 2 parallel channels
 
-        j_in = T.zeros((1,2)).double()
+        j_in = T.zeros((1,4)).double()
         for i in range(7):
-            j_in += self.fc_ji(jcat[:, :, i])
+            j_in += self.fc_ji_2_list[i](self.afun(self.fc_ji_1(jcat[:, :, i])))
+        j_in = self.afun(j_in)
 
-        j_in = T.tanh(j_in)
-        emb = T.tanh(self.fc_e(T.cat([obs, j_in], 1)))
+        emb = self.afun(self.fc_e_1(T.cat([obs, j_in], 1)))
+        emb = self.afun(self.fc_e_2(emb))
 
         j_out = []
         for i in range(7):
-            j_out.append(self.fc_jo(emb + jcat[:, :, i]))
+            j_out.append(self.fc_jo_list[i](emb + jcat[:, :, i]))
 
         j_out = T.cat(j_out, 1)
 
@@ -232,7 +245,7 @@ def train(params):
 
 env_name = "SwimmerLong-v0"
 #policyfunctions = [Baseline, ConvPolicy, SymPolicy, RecPolicy, AggregPolicy]
-policyfunctions = [AggregPolicy]
+policyfunctions = [SymPolicy]
 
 for p in policyfunctions:
     print("Training with {} policy.".format(p.__name__))

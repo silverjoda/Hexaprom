@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# CODE PARTIALLY TAKEN FROM https://github.com/viraat/hindsight-experience-replay
+# CODE PARTIALLY TAKEN FROM https://github.com/viraat/hindsight-experience-replay.
 
 # ## DQN HER Implementation
 
@@ -32,8 +32,10 @@ class AntEnv():
     def __init__(self):
         self.env = gym.make("Ant-v3")
         self.reset()
+
     def step(self):
         pass
+
     def reset(self):
         self.init_state = torch.randint(2, size=(n,))
         self.target_state = torch.randint(2, size=(n,))
