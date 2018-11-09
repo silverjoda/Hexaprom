@@ -32,7 +32,8 @@ class ConvPolicy(nn.Module):
         self.conv2 = nn.Conv1d(in_channels=2, out_channels=4, kernel_size=3, stride=1)
 
         self.deconv1 = nn.ConvTranspose1d(in_channels=4, out_channels=2, kernel_size=3, stride=1)
-        self.deconv2 = nn.ConvTranspose1d(in_channels=4, out_channels=1, kernel_size=3, stride=2)
+        self.deconv2 = nn.ConvTranspose1d(in_channels=4, out_channels=2, kernel_size=3, stride=2)
+        self.deconv3 = nn.ConvTranspose1d(in_channels=3, out_channels=1, kernel_size=1, stride=1)
 
         nn.init.xavier_uniform_(self.conv1.weight)
         nn.init.xavier_uniform_(self.conv2.weight)
@@ -59,6 +60,7 @@ class ConvPolicy(nn.Module):
 
         fm = self.afun(self.deconv1(fc_emb))
         fm = self.deconv2(T.cat((fm, fm_c1), 1))
+        fm = self.deconv3(T.cat((fm, j.unsqueeze(1)), 1))
 
         x = fm.unsqueeze(1)
 
@@ -128,12 +130,12 @@ class RecPolicy(nn.Module):
 
         h_up.reverse()
         h = self.afun(self.fc_obs_2(self.afun(self.fc_obs_1(T.cat((obs, h), 1))))) #
-        h_prev = h
+
         acts = []
         for i in range(7):
+            acts.append(self.fc_out(T.cat((h, j[:, i:i + 1]), 1)))
             h = self.r_down(h_up[i], h)
-            acts.append(self.fc_out(T.cat((h_prev, j[:,i:i+1]),1)))
-            h_prev = h
+
         return T.cat(acts, 1)
 
 
@@ -286,7 +288,7 @@ def train(params):
 
 env_name = "SwimmerLong-v0"
 #policyfunctions = [Baseline, ConvPolicy, SymPolicy, RecPolicy, AggregPolicy]
-policyfunctions = [RecPolicy]
+policyfunctions = [ConvPolicy]
 
 for p in policyfunctions:
     print("Training with {} policy.".format(p.__name__))
