@@ -6,6 +6,7 @@ import quaternion
 import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 import pytorch_ES
 
 
@@ -103,6 +104,43 @@ class RecPolicy(nn.Module):
     def __init__(self):
         super(RecPolicy, self).__init__()
 
+        self.r_up = nn.RNNCell(2, 4)
+        self.fc_obs_1 = nn.Linear(8, 4)
+        self.fc_obs_2 = nn.Linear(4, 4)
+        self.r_down = nn.RNNCell(4, 4)
+        self.fc_out = nn.Linear(5, 1)
+
+        self.afun = F.tanh
+
+
+    def forward(self, x):
+        obs = x[:, :4]
+        j = x[:, 4:11]
+        jd = x[:, 11:]
+        jcat = T.cat([j.unsqueeze(1), jd.unsqueeze(1)], 1)  # Concatenate j and jd so that they are 2 parallel channels
+
+        h = T.zeros(1, 4).double()
+
+        h_up = []
+        for i in reversed(range(7)):
+            h = self.r_up(jcat[:, :, i], h)
+            h_up.append(h)
+
+        h_up.reverse()
+        h = self.afun(self.fc_obs_2(self.afun(self.fc_obs_1(T.cat((obs, h), 1))))) #
+        h_prev = h
+        acts = []
+        for i in range(7):
+            h = self.r_down(h_up[i], h)
+            acts.append(self.fc_out(T.cat((h_prev, j[:,i:i+1]),1)))
+            h_prev = h
+        return T.cat(acts, 1)
+
+
+class TRecPolicy(nn.Module):
+    def __init__(self):
+        super(TRecPolicy, self).__init__()
+
         self.r_up = nn.GRUCell(2, 4)
         self.fc_obs_1 = nn.Linear(8, 4)
         self.fc_obs_2 = nn.Linear(4, 4)
@@ -140,8 +178,8 @@ class AggregPolicy(nn.Module):
 
         self.fc_j_init = nn.Linear(2, 4)
         self.fc_m_init = nn.Linear(4, 4)
-        self.rnn_j = nn.GRUCell(4, 4)
-        self.rnn_m = nn.GRUCell(4, 4)
+        self.rnn_j = nn.RNNCell(4, 4)
+        self.rnn_m = nn.RNNCell(4, 4)
         self.fc_act = nn.Linear(4, 1)
 
 
@@ -252,7 +290,7 @@ policyfunctions = [RecPolicy]
 
 for p in policyfunctions:
     print("Training with {} policy.".format(p.__name__))
-    fbest = train((env_name, p, 100, True))
+    fbest = train((env_name, p, 300, True))
     print("Policy {} max score: {}".format(p.__name__, fbest))
 
 print("Done, exiting.")
