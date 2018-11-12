@@ -102,8 +102,6 @@ class DDPG:
         actionNoise = action + noise
         return actionNoise
 
-    def sampleGoal(self):
-        pass
 
     def train(self):
 
