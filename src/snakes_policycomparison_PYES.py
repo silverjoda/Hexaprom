@@ -139,41 +139,6 @@ class RecPolicy(nn.Module):
         return T.cat(acts, 1)
 
 
-class TRecPolicy(nn.Module):
-    def __init__(self):
-        super(TRecPolicy, self).__init__()
-
-        self.r_up = nn.GRUCell(2, 4)
-        self.fc_obs_1 = nn.Linear(8, 4)
-        self.fc_obs_2 = nn.Linear(4, 4)
-        self.r_down = nn.GRUCell(4, 4)
-        self.fc_out = nn.Linear(5, 1)
-
-        self.afun = F.tanh
-
-    def forward(self, x):
-        obs = x[:, :4]
-        j = x[:, 4:11]
-        jd = x[:, 11:]
-        jcat = T.cat([j.unsqueeze(1), jd.unsqueeze(1)], 1)  # Concatenate j and jd so that they are 2 parallel channels
-
-        h = T.zeros(1, 4).double()
-
-        h_up = []
-        for i in reversed(range(7)):
-            h = self.r_up(jcat[:, :, i], h)
-            h_up.append(h)
-
-        h = self.afun(self.fc_obs_2(self.afun(self.fc_obs_1(T.cat((obs, h), 1))))) #
-
-        acts = []
-        for i in range(7):
-            h = self.r_down(h_up[i], h)
-            acts.append(self.fc_out(T.cat((h, j[:,i:i+1]),1)))
-
-        return T.cat(acts, 1)
-
-
 class AggregPolicy(nn.Module):
     def __init__(self):
         super(AggregPolicy, self).__init__()
