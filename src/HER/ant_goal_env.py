@@ -4,7 +4,7 @@ import numpy as np
 
 class AntG:
     def __init__(self):
-        self.env = gym.make("Antc-v0")
+        self.env = gym.make("Ant-v3")
         self.goal = None
         self.n_episodes = 0
         self.success_rate = 0
