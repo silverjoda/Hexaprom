@@ -13,8 +13,8 @@ class Actor(nn.Module):
     """Defines actor network"""
     def __init__(self, env):
         super(Actor, self).__init__()
-        self.state_dim = env.action_space.shape[0]
-        self.act_dim = env.observation_space.shape[0]
+        self.obs_dim = env.obs_dim + env.goal_dim
+        self.act_dim = env.act_dim
 
         self.fc1 = nn.Linear(self.state_dim, 64)
         self.bn1 = nn.BatchNorm1d(64)
@@ -38,8 +38,8 @@ class Critic(nn.Module):
     """Defines critic network"""
     def __init__(self, env):
         super(Critic, self).__init__()
-        self.state_dim = env.action_space.shape[0]
-        self.act_dim = env.observation_space.shape[0]
+        self.obs_dim = env.obs_dim + env.goal_dim
+        self.act_dim = env.act_dim
 
         self.fc1 = nn.Linear(self.state_dim, 64)
         self.bn1 = nn.BatchNorm1d(64)
