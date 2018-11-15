@@ -45,10 +45,10 @@ class Critic(nn.Module):
         self.fc1 = nn.Linear(self.obs_dim, 64)
         self.bn1 = nn.BatchNorm1d(64)
 
-        self.fc2 = nn.Linear(64, 64)
+        self.fc2 = nn.Linear(64 + self.act_dim, 64)
         self.bn2 = nn.BatchNorm1d(64)
 
-        self.fc3 = nn.Linear(64, self.act_dim)
+        self.fc3 = nn.Linear(64, 1)
         
     def forward(self, s, a):
         x = F.relu(self.fc1(s))

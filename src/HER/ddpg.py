@@ -71,17 +71,17 @@ class DDPG:
             using the target actor and target critic
            Outputs: Batch of Q-value targets"""
         
-        targetBatch = torch.FloatTensor(rewardBatch).cuda() 
+        targetBatch = torch.FloatTensor(rewardBatch)
         nonFinalMask = torch.ByteTensor(tuple(map(lambda s: s != True, terminalBatch)))
         nextStateBatch = torch.cat(nextStateBatch)
         nextActionBatch = self.targetActor(nextStateBatch)
         nextActionBatch.volatile = True
         qNext = self.targetCritic(nextStateBatch, nextActionBatch)  
         
-        nonFinalMask = self.discount * nonFinalMask.type(torch.cuda.FloatTensor)
+        nonFinalMask = self.discount * nonFinalMask.type(torch.FloatTensor)
         targetBatch += nonFinalMask * qNext.squeeze().data
         
-        return Variable(targetBatch, volatile=False)
+        return Variable(targetBatch, volatile=False).unsqueeze(1)
 
     
     def updateTargets(self, target, original):
@@ -97,8 +97,8 @@ class DDPG:
     def getMaxAction(self, s):
         """Inputs: Current state of the episode
             Returns the action which maximizes the Q-value of the current state-action pair"""
-       
-        noise = self.epsilon * T.from_numpy(self.noise())
+
+        noise = self.epsilon * Variable(torch.FloatTensor(self.noise()), volatile=True)
         action = self.actor(s)
         actionNoise = action + noise
         return actionNoise
@@ -122,8 +122,10 @@ class DDPG:
 
                 # Get action
                 c_obs = np.concatenate([obs, goal])
-                c_obs = T.from_numpy(c_obs.astype(np.float32)).unsqueeze(0)
-                action = self.actor.forward(c_obs)
+                c_obs = T.FloatTensor(c_obs.astype(np.float32)).unsqueeze(0)
+
+                with torch.no_grad():
+                    action = self.getMaxAction(c_obs)
 
                 # Step episode
                 obs, r, done, _ = self.env.step(action.data)
@@ -141,15 +143,15 @@ class DDPG:
             # Append all hindsight transitions
             for j in range(len(observations) - 1):
                 obs, next_obs = observations[j:j+2]
-                r = T.tensor(rewards[j])
+                r = rewards[j]
                 a = actions[j]
                 t = terminals[j]
 
                 c_obs = np.concatenate([obs, final_pose])
-                c_obs = T.from_numpy(c_obs).unsqueeze(0)
+                c_obs = T.FloatTensor(c_obs.astype(np.float32)).unsqueeze(0)
 
                 next_c_obs = np.concatenate([next_obs, final_pose])
-                next_c_obs = T.from_numpy(next_c_obs).unsqueeze(0)
+                next_c_obs = T.FloatTensor(next_c_obs.astype(np.float32)).unsqueeze(0)
 
                 self.replayBuffer.append((c_obs, a, next_c_obs, r, t))
 
@@ -168,14 +170,15 @@ class DDPG:
                 # Critic update
                 self.criticOptim.zero_grad()
                 criticLoss = self.criticLoss(qPredBatch, qTargetBatch)
-                print('Critic Loss: {}'.format(criticLoss))
+
+                #print('Critic Loss: {}'.format(criticLoss))
                 criticLoss.backward()
                 self.criticOptim.step()
 
                 # Actor update
                 self.actorOptim.zero_grad()
                 actorLoss = -T.mean(self.critic(curStateBatch, self.actor(curStateBatch)))
-                print('Actor Loss: {}'. format(actorLoss))
+                #print('Actor Loss: {}'. format(actorLoss))
                 actorLoss.backward()
                 self.actorOptim.step()
 
