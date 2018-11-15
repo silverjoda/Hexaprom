@@ -24,9 +24,9 @@ class AntG:
 
     def _sample_goal(self, pose):
         x, y, psi = pose
-        nx = x + np.random.randn() * 1
-        ny = y + np.random.randn() * 1
-        npsi = y + np.random.randn() * 0.2
+        nx = x + np.random.randn() * (1 + 2 * self.success_rate)
+        ny = y + np.random.randn() * (1 + 2 * self.success_rate)
+        npsi = y + np.random.randn() * (0.2 + 1 * self.success_rate)
 
         goal = nx, ny, npsi
 

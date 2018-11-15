@@ -188,8 +188,8 @@ class DDPG:
                 self.epsilon -= self.epsilon_decay
 
                     
-            if i % 20 == 0:
-                print("Episode {}/{}, episode reward: {}".format(i, NUM_EPISODES, ep_reward))
+            if i % 10 == 0:
+                print("Episode {}/{}, episode reward: {}, success rate: {}".format(i, NUM_EPISODES, ep_reward, env.success_rate))
 
 
 if __name__=="__main__":
