@@ -54,22 +54,17 @@ class Policy(nn.Module):
         self.reset()
 
         self.rnn = nn.GRUCell(obs_dim, n_hid)
-        self.l1 = nn.Linear(n_hid, obs_dim * 5)
-        self.out = nn.Linear(obs_dim * 5, act_dim)
+        self.out = nn.Linear(n_hid, act_dim)
 
-        torch.nn.init.xavier_uniform_(self.rnn.weight_hh)
-        torch.nn.init.xavier_uniform_(self.rnn.weight_ih)
-        torch.nn.init.xavier_uniform_(self.l1.weight)
-        torch.nn.init.xavier_uniform_(self.out.weight)
 
     def forward(self, x):
         self.h = self.rnn(x, self.h)
-        l1 = F.relu(self.l1(self.h))
-        return self.out(l1)
+        return self.out(self.h)
 
 
     def reset(self, batchsize=1):
         self.h = torch.zeros(batchsize, self.n_hid).float()
+
 
 def pretrain_model(model, env, iters, lr=1e-3):
     if iters == 0:
@@ -237,6 +232,7 @@ def train_opt(model, policy, env, iters, animate=True, lr_model=1e-3, lr_policy=
                                                                                                           loss_rewards,
                                                                                                           policy_score))
 
+
 def eval(env, policy):
 
     for i in range(10):
@@ -253,6 +249,7 @@ def eval(env, policy):
 
         print("Eval iter {}/{}, rew = {}".format(i, 10, rtot))
 
+
 def main():
 
     # Create environment
@@ -262,10 +259,10 @@ def main():
     act_dim = env.action_space.shape[0]
 
     # Create prediction model
-    model = Model(obs_dim, act_dim, 64)
+    model = Model(obs_dim, act_dim, 8)
 
     # Create policy model
-    policy = Policy(obs_dim, act_dim, 64)
+    policy = Policy(obs_dim, act_dim, 8)
 
     # Pretrain model on random actions
     t1 = time.time()
@@ -281,10 +278,6 @@ def main():
     opt_iters = 3000
     train_opt(model, policy, env, opt_iters, animate=True, lr_model=3e-4, lr_policy=1e-3, model_rpts=10)
 
-    # TODO: BATCH TRAIN EVERYTHING. SINGLE EXAMPLE UPDATES TOO NOISY
-    # TODO: TRY WITH AND WITHOUT THE DIFF
-    # TODO: CHANGE POLICY TO STOCHASTIC
-    # TODO: RIGHT NOW WE ARE MAXIMIZING STATE 5 which is xdot
 
     print("Finished training, saving")
     torch.save(policy, '{}_policy.pt'.format(env.spec.id))

@@ -5,6 +5,9 @@ import numpy as np
 class AntG:
     def __init__(self):
         self.env = gym.make("Ant-v3")
+        self.obs_dim = self.env.observation_space.shape[0]
+        self.act_dim = self.env.action_space.shape[0]
+        self.goal_dim = 3 # x,y,theta (SE2 group)
         self.goal = None
         self.n_episodes = 0
         self.success_rate = 0

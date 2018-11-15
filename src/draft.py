@@ -1,3 +1,19 @@
+
+
+
+
+import torch
+from sys import exit
+
+x = torch.randn(1, 5, requires_grad=True)
+xf = torch.rfft(x, 2)
+print(xf)
+sum = torch.sum(xf)
+sum.backward()
+print(x.grad)
+
+
+exit()
 import roboschool, gym;
 
 print("\n".join(['- ' + spec.id for spec in gym.envs.registry.all() ]))

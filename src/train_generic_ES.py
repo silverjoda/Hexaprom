@@ -31,7 +31,7 @@ def f(w):
 
 # Make environment
 import roboschool
-envname = "SwimmerLong-v0"
+envname = "Walker2d-v2"
 env = gym.make(envname)
 print("Env: {} Action space: {}, observation space: {}".format(envname, env.action_space.shape, env.observation_space.shape))
 animate = False

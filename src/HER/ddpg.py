@@ -11,6 +11,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim as optim
 
+from HER.ant_goal_env import AntG
 
 # Lib
 import numpy as np
@@ -30,14 +31,14 @@ from HER.actorcritic import Actor, Critic
 # Hyperparameters
 ACTOR_LR = 0.0001
 CRITIC_LR = 0.001
-MINIBATCH_SIZE = 64
+MINIBATCH_SIZE = 4
 NUM_EPISODES = 10000
 MU = 0
 SIGMA = 0.2
 BUFFER_SIZE = 1000000
 DISCOUNT = 0.9
 TAU = 0.001
-WARMUP = 24
+WARMUP = 5
 EPSILON = 1.0
 EPSILON_DECAY = 1e-6
 
@@ -45,8 +46,8 @@ EPSILON_DECAY = 1e-6
 class DDPG:
     def __init__(self, env):
         self.env = env
-        self.state_dim = env.observation_space.shape[0]
-        self.act_dim = env.action_space.shape[0]
+        self.state_dim = env.obs_dim
+        self.act_dim = env.act_dim
         self.actor = Actor(self.env)
         self.critic = Critic(self.env)
         self.targetActor = deepcopy(Actor(self.env))
@@ -120,8 +121,8 @@ class DDPG:
             while not done:
 
                 # Get action
-                c_obs = np.concatenate([obs, goal], 1)
-                c_obs = T.from_numpy(c_obs).unsqueeze(0)
+                c_obs = np.concatenate([obs, goal])
+                c_obs = T.from_numpy(c_obs.astype(np.float32)).unsqueeze(0)
                 action = self.actor.forward(c_obs)
 
                 # Step episode
@@ -135,19 +136,19 @@ class DDPG:
 
                 ep_reward += r
 
-            final_pose = env.get_pose()
+            final_pose = env.get_pose(obs)
 
             # Append all hindsight transitions
             for j in range(len(observations) - 1):
                 obs, next_obs = observations[j:j+2]
                 r = T.tensor(rewards[j])
-                a = T.from_numpy(actions[j])
-                t = T.tensor(terminals[j])
+                a = actions[j]
+                t = terminals[j]
 
-                c_obs = np.concatenate([obs, final_pose], 1)
+                c_obs = np.concatenate([obs, final_pose])
                 c_obs = T.from_numpy(c_obs).unsqueeze(0)
 
-                next_c_obs = np.concatenate([next_obs, final_pose], 1)
+                next_c_obs = np.concatenate([next_obs, final_pose])
                 next_c_obs = T.from_numpy(next_c_obs).unsqueeze(0)
 
                 self.replayBuffer.append((c_obs, a, next_c_obs, r, t))
@@ -183,7 +184,6 @@ class DDPG:
                 self.updateTargets(self.targetCritic, self.critic)
                 self.epsilon -= self.epsilon_decay
 
-                obs = new_obs
                     
             if i % 20 == 0:
                 print("Episode {}/{}, episode reward: {}".format(i, NUM_EPISODES, ep_reward))
@@ -191,7 +191,7 @@ class DDPG:
 
 if __name__=="__main__":
     import gym
-    env = gym.make("FetchReacher-v1")
+    env = AntG()
     agent = DDPG(env)
     #agent.loadCheckpoint(Path to checkpoint)
     agent.train()

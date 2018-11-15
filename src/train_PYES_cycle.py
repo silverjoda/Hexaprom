@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import cos
 import gym
 import cma
 from time import sleep
@@ -8,17 +9,43 @@ import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_ES
+import sys
 
 
 class Baseline(nn.Module):
     def __init__(self, obs_dim, act_dim):
         super(Baseline, self).__init__()
+        self.obs_dim = obs_dim
+        self.act_dim = act_dim
 
-        self.fc1 = nn.Linear(obs_dim, act_dim, bias=False)
+        self.n_experts = 4
+        self.phase_step = 0.1
+
+        self.experts = nn.ParameterList([nn.Parameter(T.randn(obs_dim, act_dim + 1, requires_grad=True, dtype=T.float32)) for _ in range(self.n_experts)])
+        self.phase = 0
+
 
     def forward(self, x):
-        x = self.fc1(x)
-        return x
+
+        # TODO: print matrix statistics and decomposition values (eigenvalues etc) during training
+
+        # Blend current weights
+        A = T.zeros(self.obs_dim, self.act_dim + 1)
+        for i, w in enumerate(self.experts):
+            coeff = T.clamp(T.tensor(cos(np.abs(self.phase - i * (np.pi / 4)))), 0, 1).float()
+            wi = w.data.float() * coeff
+            A += wi
+
+        # Perform forward pass
+        x = x.float() @ A
+
+        pred_step = x[:, -1]
+
+        # Step phase
+        self.phase = (self.phase + self.phase_step) % (2 * np.pi)
+
+        return x[:, :-1]
+
 
 
 def f_wrapper(env, policy, animate):
@@ -77,6 +104,6 @@ def train(params):
     return es.result.fbest
 
 env_name = "Ant-v3"
-train((env_name, 1000, 7, False))
+train((env_name, 1000, 7, True))
 exit()
 
