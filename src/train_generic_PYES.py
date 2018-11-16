@@ -13,8 +13,7 @@ import pytorch_ES
 class Baseline(nn.Module):
     def __init__(self, obs_dim, act_dim):
         super(Baseline, self).__init__()
-
-        self.fc1 = nn.Linear(obs_dim, act_dim, bias=False)
+        self.fc1 = nn.Linear(obs_dim, act_dim)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -30,9 +29,6 @@ def f_wrapper(env, policy, animate):
         pytorch_ES.vector_to_parameters(torch.from_numpy(w), policy.parameters())
 
         while not done:
-
-            # Remap the observations
-            obs = np.concatenate((obs[0:1],obs[8:11],obs[1:8],obs[11:]))
 
             # Get action from policy
             with torch.no_grad():
@@ -76,7 +72,7 @@ def train(params):
 
     return es.result.fbest
 
-env_name = "Ant-v3"
-train((env_name, 1000, 7, False))
+env_name = "Walker2d-v2"
+train((env_name, 3000, 7, True))
 exit()
 

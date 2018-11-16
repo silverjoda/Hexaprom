@@ -34,7 +34,7 @@ import roboschool
 envname = "Walker2d-v2"
 env = gym.make(envname)
 print("Env: {} Action space: {}, observation space: {}".format(envname, env.action_space.shape, env.observation_space.shape))
-animate = False
+animate = True
 
 N = env.action_space.shape[0]
 
@@ -46,7 +46,7 @@ actfun = lambda x:x
 
 print("afun: {}".format(afun))
 
-n_hidden = 5
+n_hidden = 16
 
 wdist.addW((env.observation_space.shape[0], 1), 'w_l1')
 wdist.addW((n_hidden,), 'b_l1')
