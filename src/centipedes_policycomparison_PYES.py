@@ -23,7 +23,7 @@ class Baseline(nn.Module):
 class ConvPolicy(nn.Module):
     def __init__(self, N):
         super(ConvPolicy, self).__init__()
-        self.N_cells = N
+        self.N_cells = int(N / 2)
 
         # cell fc
         self.n_cell_channels = 4
@@ -79,50 +79,61 @@ class RecPolicy(nn.Module):
     def __init__(self, N):
         super(RecPolicy, self).__init__()
 
-        self.N_cells = N
+        # Amount of cells that the centipede has
+        self.N_cells = int(N / 2)
 
-        # cell fc
-        self.n_hidden = 4
-        self.cell_fc1 = nn.Linear(16, self.n_hidden)
-        self.cell_unfc1 = nn.Linear(self.n_hidden, 8)
+        # Cell RNN hidden
+        self.n_hidden = 8
 
-        self.r_up = nn.RNNCell(self.n_hidden, self.n_hidden)
-        self.fc_obs_1 = nn.Linear(6, 4)
-        self.fc_obs_2 = nn.Linear(4, self.n_hidden)
+        # From hidden to cell actions
+        self.cell_unfc1 = nn.Linear(self.n_hidden * 2 + 2, 6)
+
+        # RNN for upwards pass
+        self.r_up = nn.RNNCell(12, self.n_hidden)
+
+        # Global obs
+        self.fc_obs_1 = nn.Linear(13, self.n_hidden)
+        self.fc_obs_2 = nn.Linear(self.n_hidden, self.n_hidden)
+
+        # RNN for backwards pass
         self.r_down = nn.RNNCell(self.n_hidden, self.n_hidden)
 
-        self.afun = F.tanh
+        self.afun = T.tanh
 
 
     def forward(self, x):
         obs = x[:, :7]
-        obsd = x[:, 7 + self.N_cells * 4: 7 + self.N_cells * 4 + 4]
-        obs_cat = T.cat((obs, obsd), 1)
-        j = x[:, 7:7 + self.N_cells * 4]
-        jd = x[:, -(7 + self.N_cells * 4):]
-        jcat = T.cat([j.unsqueeze(1), jd.unsqueeze(1)], 1)  # Concatenate j and jd so that they are 2 parallel channels
+        obsd = x[:, 7 + self.N_cells * 6: 7 + self.N_cells * 6 + 6]
+        #obs_cat = T.cat((obs, obsd), 1)
+        #j = x[:, 7:7 + self.N_cells * 6]
+        #jd = x[:, -(self.N_cells * 6):]
+        #jcat = T.cat((j,jd), 1)
 
-        h = T.zeros(1, 4).double()
+        h = T.zeros(1, self.n_hidden).double()
+
+        # TODO: First cell has less observations because it doesn't have a cell joint, add edge case (zero padding)
 
         h_up = []
         for i in reversed(range(self.N_cells)):
-            sft = 7 + i * self.N_cells
-            sft_d = 7 + self.N_cells * 8 + i * 8
-            local_obs = obs[:, sft:sft + 8]
-            local_obs_d = obs[:, sft_d:sft_d + 8]
-            local_c = T.cat((local_obs, local_obs_d), 1)
-            feat = self.cell_fc1(local_c)
-            h = self.r_up(feat, h)
             h_up.append(h)
-
-        # TODO: continue here
+            sft = 7 + i * 6
+            sft_d = 7 + self.N_cells * 6 + 6 + i * 6
+            j = x[:, sft:sft + 6]
+            jd = x[:, sft_d:sft_d + 6]
+            local_c = T.cat((j, jd), 1)
+            h = self.r_up(local_c, h)
 
         h_up.reverse()
-        h = self.afun(self.fc_obs_2(self.afun(self.fc_obs_1(T.cat((obs, h), 1))))) #
+        h = self.afun(self.fc_obs_2(self.afun(self.fc_obs_1(T.cat((obs, obsd), 1)))))
 
         acts = []
-        for i in range(7):
-            acts.append(self.fc_out(T.cat((h, j[:, i:i + 1]), 1)))
+        for i in range(self.N_cells):
+            sft = 7 + i * 6
+            sft_d = 7 + self.N_cells * 6 + 6 + i * 6
+            j = x[:, sft:sft + 6]
+            jd = x[:, sft_d:sft_d + 6]
+            jc = T.cat((j, jd), 1)
+            acts.append(self.cell_unfc1(T.cat((h, h_up[i], jc[:, i:i + 1]), 1)))
             h = self.r_down(h_up[i], h)
 
         return T.cat(acts, 1)
@@ -138,9 +149,6 @@ def f_wrapper(env, policy, animate):
         pytorch_ES.vector_to_parameters(T.from_numpy(w), policy.parameters())
 
         while not done:
-
-            # Remap the observations
-            obs = np.concatenate((obs[0:1],obs[8:11],obs[1:8],obs[11:]))
 
             # Get action from policy
             with T.no_grad():
@@ -160,16 +168,13 @@ def f_wrapper(env, policy, animate):
 
 def train(params):
 
-    env_name, policyfun, iters, animate = params
+    env_name, policy, iters, animate = params
 
     # Make environment
     env = gym.make(env_name)
 
     # Get environment dimensions
     obs_dim, act_dim = env.observation_space.shape[0], env.action_space.shape[0]
-
-    # Make policy
-    policy = policyfun()
 
     # Make initial weight vectors from policy
     w = pytorch_ES.parameters_to_vector(policy.parameters()).detach().numpy()
@@ -204,12 +209,15 @@ def train(params):
 
 N = 50
 env_name = "Centipede{}-v0".format(N)
+env = gym.make(env_name)
+print(env.observation_space, env.action_space)
+exit()
 #policyfunctions = [Baseline, ConvPolicy, SymPolicy, RecPolicy, AggregPolicy]
-policyfunctions = [ConvPolicy(N)]
+policyfunctions = [RecPolicy]
 
 for p in policyfunctions:
     print("Training with {} policy.".format(p.__name__))
-    fbest = train((env_name, p, 300, True))
+    fbest = train((env_name, p(N), 300, True))
     print("Policy {} max score: {}".format(p.__name__, fbest))
 
 print("Done, exiting.")

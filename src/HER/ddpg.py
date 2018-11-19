@@ -31,16 +31,16 @@ from HER.actorcritic import Actor, Critic
 # Hyperparameters
 ACTOR_LR = 0.0001
 CRITIC_LR = 0.001
-MINIBATCH_SIZE = 4
-NUM_EPISODES = 10000
+MINIBATCH_SIZE = 128
+NUM_EPISODES = 100000
 MU = 0
-SIGMA = 0.2
+SIGMA = 0.3
 BUFFER_SIZE = 1000000
 DISCOUNT = 0.9
 TAU = 0.001
-WARMUP = 5
+WARMUP = 160
 EPSILON = 1.0
-EPSILON_DECAY = 1e-6
+EPSILON_DECAY = 1e-9
 
 
 class DDPG:
@@ -98,18 +98,20 @@ class DDPG:
         """Inputs: Current state of the episode
             Returns the action which maximizes the Q-value of the current state-action pair"""
 
+
         noise = self.epsilon * Variable(torch.FloatTensor(self.noise()), volatile=True)
         action = self.actor(s)
         actionNoise = action + noise
         return actionNoise
 
 
-    def train(self):
+    def train(self, animate=False):
 
         print('Starting training...')
         
         for i in range(NUM_EPISODES):
             obs, goal = self.env.reset()
+            self.noise.reset()
             done = False
             ep_reward = 0
 
@@ -129,6 +131,9 @@ class DDPG:
 
                 # Step episode
                 obs, r, done, _ = self.env.step(action.data)
+
+                if animate:
+                    self.env.render()
 
                 # Add new data
                 observations.append(obs)
@@ -197,4 +202,4 @@ if __name__=="__main__":
     env = AntG()
     agent = DDPG(env)
     #agent.loadCheckpoint(Path to checkpoint)
-    agent.train()
+    agent.train(animate=True)

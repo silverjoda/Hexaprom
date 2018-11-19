@@ -11,6 +11,8 @@ class AntG:
         self.goal = None
         self.n_episodes = 0
         self.success_rate = 0
+        self.prev_success = False
+        self.avg_n = 1000.
         self.xy_dev = 0.1
         self.psi_dev = 0.3
 
@@ -24,8 +26,8 @@ class AntG:
 
     def _sample_goal(self, pose):
         x, y, psi = pose
-        nx = x + np.random.randn() * (1 + 2 * self.success_rate)
-        ny = y + np.random.randn() * (1 + 2 * self.success_rate)
+        nx = x + np.random.randn() * (2 + 2 * self.success_rate)
+        ny = y + np.random.randn() * (2 + 2 * self.success_rate)
         npsi = y + np.random.randn() * (0.2 + 1 * self.success_rate)
 
         goal = nx, ny, npsi
@@ -47,18 +49,24 @@ class AntG:
         # Check if goal has been reached
         reached_goal = self.reached_goal(pose, self.goal)
 
+        if reached_goal:
+            print("SUCCESS")
+
         # Update success rate
         self._update_stats(reached_goal)
+
+        # TODO: Fix stats update and success_rate
+        # TODO: Check action random noise
 
         # Reevaluate termination condition
         done = done or reached_goal
 
-        return obs, r, done, info
+        return obs, float(reached_goal), done, info
 
 
     def _update_stats(self, result):
-        self.success_rate = (self.success_rate * self.n_episodes + result) / (self.n_episodes + 1)
-        self.n_episodes += 1
+        self.success_rate = self.success_rate + (float(result) / self.avg_n) - (float(self.prev_success) / self.avg_n)
+        self.prev_success = result
 
 
     def reached_goal(self, pose, goal):
