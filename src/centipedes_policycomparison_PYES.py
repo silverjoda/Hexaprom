@@ -80,7 +80,7 @@ class RecPolicy(nn.Module):
         super(RecPolicy, self).__init__()
 
         # Amount of cells that the centipede has
-        self.N_cells = int(N / 2)
+        self.N_links = int(N / 2)
 
         # Cell RNN hidden
         self.n_hidden = 8
@@ -103,40 +103,31 @@ class RecPolicy(nn.Module):
 
     def forward(self, x):
         obs = x[:, :7]
-        obsd = x[:, 7 + self.N_cells * 6: 7 + self.N_cells * 6 + 6]
-        #obs_cat = T.cat((obs, obsd), 1)
-        #j = x[:, 7:7 + self.N_cells * 6]
-        #jd = x[:, -(self.N_cells * 6):]
-        #jcat = T.cat((j,jd), 1)
+        obsd = x[:, 7 + self.N_links * 6 - 2: 7 + self.N_links * 6 - 2 + 6]
+        obs_cat = T.cat((obs, obsd), 1)
+        jl = T.cat((T.zeros(1, 2).double(),x[:, 7:7 + self.N_links * 6 - 2]))
+        jdl = T.cat((T.zeros(1, 2).double(), x[:, 7 + self.N_links * 6 - 2 + 6:]))
 
         h = T.zeros(1, self.n_hidden).double()
 
-        # TODO: First cell has less observations because it doesn't have a cell joint, add edge case (zero padding)
-
         h_up = []
-        for i in reversed(range(self.N_cells)):
+        for i in reversed(range(self.N_links)):
             h_up.append(h)
-            sft = 7 + i * 6
-            sft_d = 7 + self.N_cells * 6 + 6 + i * 6
-            j = x[:, sft:sft + 6]
-            jd = x[:, sft_d:sft_d + 6]
+            shift = 6 * i
+            j = jl[:, shift:shift + 6]
+            jd = jdl[:, shift:shift + 6]
             local_c = T.cat((j, jd), 1)
             h = self.r_up(local_c, h)
 
         h_up.reverse()
-        h = self.afun(self.fc_obs_2(self.afun(self.fc_obs_1(T.cat((obs, obsd), 1)))))
+        h = self.afun(self.fc_obs_2(self.afun(self.fc_obs_1(obs_cat))))
 
         acts = []
-        for i in range(self.N_cells):
-            sft = 7 + i * 6
-            sft_d = 7 + self.N_cells * 6 + 6 + i * 6
-            j = x[:, sft:sft + 6]
-            jd = x[:, sft_d:sft_d + 6]
-            jc = T.cat((j, jd), 1)
-            acts.append(self.cell_unfc1(T.cat((h, h_up[i], jc[:, i:i + 1]), 1)))
+        for i in range(self.N_links):
+            acts.append(self.cell_unfc1(T.cat((h, h_up[i]), 1)))
             h = self.r_down(h_up[i], h)
 
-        return T.cat(acts, 1)
+        return T.cat(acts, 1)[:, 2:]
 
 
 def f_wrapper(env, policy, animate):
