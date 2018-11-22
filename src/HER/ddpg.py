@@ -64,24 +64,40 @@ class DDPG:
         self.epsilon_decay = EPSILON_DECAY
         self.rewardgraph = []
         
-        
-    def getQTarget(self, nextStateBatch, rewardBatch, terminalBatch):       
-        """Inputs: Batch of next states, rewards and terminal flags of size self.batchSize
-            Calculates the target Q-value from reward and bootstraped Q-value of next state
-            using the target actor and target critic
-           Outputs: Batch of Q-value targets"""
-        
-        targetBatch = torch.FloatTensor(rewardBatch)
-        nonFinalMask = torch.ByteTensor(tuple(map(lambda s: s != True, terminalBatch)))
-        nextStateBatch = torch.cat(nextStateBatch)
-        nextActionBatch = self.targetActor(nextStateBatch)
-        nextActionBatch.volatile = True
-        qNext = self.targetCritic(nextStateBatch, nextActionBatch)  
-        
-        nonFinalMask = self.discount * nonFinalMask.type(torch.FloatTensor)
-        targetBatch += nonFinalMask * qNext.squeeze().data
-        
-        return Variable(targetBatch, volatile=False).unsqueeze(1)
+    #
+    # def getQTarget(self, nextStateBatch, rewardBatch, terminalBatch):
+    #     """Inputs: Batch of next states, rewards and terminal flags of size self.batchSize
+    #         Calculates the target Q-value from reward and bootstraped Q-value of next state
+    #         using the target actor and target critic
+    #        Outputs: Batch of Q-value targets"""
+    #
+    #     targetBatch = torch.FloatTensor(rewardBatch)
+    #     nonFinalMask = torch.ByteTensor(tuple(map(lambda s: s != True, terminalBatch)))
+    #     nextStateBatch = torch.cat(nextStateBatch)
+    #     nextActionBatch = self.targetActor(nextStateBatch)
+    #     nextActionBatch.volatile = True
+    #     qNext = self.targetCritic(nextStateBatch, nextActionBatch)
+    #
+    #     nonFinalMask = self.discount * nonFinalMask.type(torch.FloatTensor)
+    #     targetBatch += nonFinalMask * qNext.squeeze().data
+    #
+    #     return Variable(targetBatch, volatile=False).unsqueeze(1)
+
+    def getQTarget(self, nextStateBatch, rewardBatch, terminalBatch):
+
+        acts = self.targetActor(nextStateBatch)
+        Qvals = self.targetCritic(nextStateBatch, acts)
+
+        y_i = []
+        for r,t,q in zip(rewardBatch, terminalBatch, Qvals):
+            if t:
+                y_i.append(r.unsqueeze(0))
+            else:
+                y_i.append(r + self.discount * q)
+
+        y_i = T.stack(y_i)
+
+        return y_i
 
     
     def updateTargets(self, target, original):
@@ -89,8 +105,7 @@ class DDPG:
             Inputs: target actor(critic) and original actor(critic)"""
         
         for targetParam, orgParam in zip(target.parameters(), original.parameters()):
-            targetParam.data.copy_((1 - TAU)*targetParam.data + \
-                                          TAU*orgParam.data)
+            targetParam.data.copy_((1 - TAU)*targetParam.data + TAU*orgParam.data)
 
             
   
@@ -98,9 +113,8 @@ class DDPG:
         """Inputs: Current state of the episode
             Returns the action which maximizes the Q-value of the current state-action pair"""
 
-
-        noise = self.epsilon * Variable(torch.FloatTensor(self.noise()), volatile=True)
-        action = self.actor(s)
+        noise = (self.epsilon * Variable(torch.FloatTensor(self.noise()))).detach()
+        action = self.actor(s).detach()
         actionNoise = action + noise
         return actionNoise
 
@@ -115,51 +129,46 @@ class DDPG:
             done = False
             ep_reward = 0
 
-            observations = [obs]
-            rewards = []
+            observations = []
+            new_observations = []
             actions = []
             terminals = []
 
             while not done:
 
                 # Get action
-                c_obs = np.concatenate([obs, goal])
-                c_obs = T.FloatTensor(c_obs.astype(np.float32)).unsqueeze(0)
+                c_obs = T.FloatTensor(np.concatenate([obs, goal]).astype(np.float32)).unsqueeze(0)
 
+                # HERE
                 with torch.no_grad():
                     action = self.getMaxAction(c_obs)
 
                 # Step episode
-                obs, r, done, _ = self.env.step(action.data)
+                obs_new, r, done, _ = self.env.step(action.numpy())
 
                 if animate:
                     self.env.render()
 
                 # Add new data
                 observations.append(obs)
-                rewards.append(r)
                 actions.append(action)
                 terminals.append(done)
+                new_observations.append(obs_new)
 
                 ep_reward += r
 
             final_pose = env.get_pose(obs)
 
             # Append all hindsight transitions
-            for j in range(len(observations) - 1):
-                obs, next_obs = observations[j:j+2]
-                r = rewards[j]
-                a = actions[j]
-                t = terminals[j]
+            for o,a,t,n_o in zip(observations,actions,terminals,new_observations):
+                c_obs = T.FloatTensor(np.concatenate([o, final_pose]).astype(np.float32)).unsqueeze(0)
+                next_c_obs = T.FloatTensor(np.concatenate([n_o, final_pose]).astype(np.float32)).unsqueeze(0)
 
-                c_obs = np.concatenate([obs, final_pose])
-                c_obs = T.FloatTensor(c_obs.astype(np.float32)).unsqueeze(0)
+                # Reward is 1 if we reached our terminal goal (in HER we always get rew 1 when we reach terminal goal)
+                r = 1. if t else 0
 
-                next_c_obs = np.concatenate([next_obs, final_pose])
-                next_c_obs = T.FloatTensor(next_c_obs.astype(np.float32)).unsqueeze(0)
-
+                # Add transition
                 self.replayBuffer.append((c_obs, a, next_c_obs, r, t))
-
 
             # Training loop
             if len(self.replayBuffer) >= self.warmup:
@@ -168,6 +177,8 @@ class DDPG:
                 rewardBatch, terminalBatch = self.replayBuffer.sample_batch(self.batchSize)
                 curStateBatch = T.cat(curStateBatch)
                 actionBatch = T.cat(actionBatch)
+                nextStateBatch = T.cat(nextStateBatch)
+                rewardBatch = T.from_numpy(np.asarray(rewardBatch).astype(np.float32))
 
                 qPredBatch = self.critic(curStateBatch, actionBatch)
                 qTargetBatch = self.getQTarget(nextStateBatch, rewardBatch, terminalBatch)
@@ -176,14 +187,12 @@ class DDPG:
                 self.criticOptim.zero_grad()
                 criticLoss = self.criticLoss(qPredBatch, qTargetBatch)
 
-                #print('Critic Loss: {}'.format(criticLoss))
                 criticLoss.backward()
                 self.criticOptim.step()
 
                 # Actor update
                 self.actorOptim.zero_grad()
                 actorLoss = -T.mean(self.critic(curStateBatch, self.actor(curStateBatch)))
-                #print('Actor Loss: {}'. format(actorLoss))
                 actorLoss.backward()
                 self.actorOptim.step()
 
@@ -202,4 +211,4 @@ if __name__=="__main__":
     env = AntG()
     agent = DDPG(env)
     #agent.loadCheckpoint(Path to checkpoint)
-    agent.train(animate=True)
+    agent.train(animate=False)
