@@ -16,6 +16,7 @@ class AntG:
         self.xy_dev = 0.1
         self.psi_dev = 0.3
 
+    # TODO: DEBUG ENVIRONMENT
 
     def reset(self):
         obs = self.env.reset()
@@ -26,8 +27,8 @@ class AntG:
 
     def _sample_goal(self, pose):
         x, y, psi = pose
-        nx = x + np.random.randn() * (2 + 2 * self.success_rate)
-        ny = y + np.random.randn() * (2 + 2 * self.success_rate)
+        nx = x + np.random.randn() * (1 + 2 * self.success_rate)
+        ny = y + np.random.randn() * (1 + 2 * self.success_rate)
         npsi = y + np.random.randn() * (0.2 + 1 * self.success_rate)
 
         goal = nx, ny, npsi

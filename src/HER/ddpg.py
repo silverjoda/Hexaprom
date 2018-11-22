@@ -211,4 +211,4 @@ if __name__=="__main__":
     env = AntG()
     agent = DDPG(env)
     #agent.loadCheckpoint(Path to checkpoint)
-    agent.train(animate=False)
+    agent.train(animate=True)
