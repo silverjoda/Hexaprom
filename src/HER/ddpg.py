@@ -29,14 +29,14 @@ from HER.replaybuffer import Buffer
 from HER.actorcritic import Actor, Critic
 
 # Hyperparameters
-ACTOR_LR = 0.0001
+ACTOR_LR = 0.001
 CRITIC_LR = 0.001
 MINIBATCH_SIZE = 128
 NUM_EPISODES = 100000
 MU = 0
 SIGMA = 0.3
 BUFFER_SIZE = 1000000
-DISCOUNT = 0.9
+DISCOUNT = 0.98
 TAU = 0.001
 WARMUP = 160
 EPSILON = 1.0
@@ -113,7 +113,9 @@ class DDPG:
         """Inputs: Current state of the episode
             Returns the action which maximizes the Q-value of the current state-action pair"""
 
-        noise = (self.epsilon * Variable(torch.FloatTensor(self.noise()))).detach()
+        #noise = (self.epsilon * Variable(torch.FloatTensor(self.noise()))).detach()
+        noise = (self.epsilon * T.randn(self.act_dim)).detach()
+
         action = self.actor(s).detach()
         actionNoise = action + noise
         return actionNoise
@@ -139,9 +141,7 @@ class DDPG:
                 # Get action
                 c_obs = T.FloatTensor(np.concatenate([obs, goal]).astype(np.float32)).unsqueeze(0)
 
-                # HERE
-                with torch.no_grad():
-                    action = self.getMaxAction(c_obs)
+                action = self.getMaxAction(c_obs)
 
                 # Step episode
                 obs_new, r, done, _ = self.env.step(action.numpy())
@@ -201,9 +201,9 @@ class DDPG:
                 self.updateTargets(self.targetCritic, self.critic)
                 self.epsilon -= self.epsilon_decay
 
-                    
-            if i % 10 == 0:
-                print("Episode {}/{}, episode reward: {}, success rate: {}".format(i, NUM_EPISODES, ep_reward, env.success_rate))
+
+                if i % 10 == 0:
+                    print("Episode {}/{}, ep reward: {}, actr loss: {}, critic loss: {}, success rate: {}".format(i, NUM_EPISODES, ep_reward, actorLoss, criticLoss, env.success_rate))
 
 
 if __name__=="__main__":

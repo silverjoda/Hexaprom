@@ -1,6 +1,7 @@
 import gym
 import quaternion # Feel free to remove
 import numpy as np
+from collections import deque
 
 class AntG:
     def __init__(self):
@@ -12,7 +13,7 @@ class AntG:
         self.n_episodes = 0
         self.success_rate = 0
         self.prev_success = False
-        self.avg_n = 1000.
+        self.success_queue = deque(maxlen=300)
         self.xy_dev = 0.1
         self.psi_dev = 0.3
 
@@ -27,9 +28,9 @@ class AntG:
 
     def _sample_goal(self, pose):
         x, y, psi = pose
-        nx = x + np.random.randn() * (1 + 2 * self.success_rate)
-        ny = y + np.random.randn() * (1 + 2 * self.success_rate)
-        npsi = y + np.random.randn() * (0.2 + 1 * self.success_rate)
+        nx = x + np.random.randn() * (2. + 3 * self.success_rate)
+        ny = y + np.random.randn() * (2. + 3 * self.success_rate)
+        npsi = y + np.random.randn() * (0.3 + 1 * self.success_rate)
 
         goal = nx, ny, npsi
 
@@ -50,24 +51,24 @@ class AntG:
         # Check if goal has been reached
         reached_goal = self.reached_goal(pose, self.goal)
 
+        # Reevaluate termination condition
+        done = done or reached_goal
+
         if reached_goal:
             print("SUCCESS")
 
-        # Update success rate
-        self._update_stats(reached_goal)
-
         # TODO: Fix stats update and success_rate
-        # TODO: Check action random noise
 
-        # Reevaluate termination condition
-        done = done or reached_goal
+        # Update success rate
+        if done:
+            self._update_stats(reached_goal)
 
         return obs, float(reached_goal), done, info
 
 
-    def _update_stats(self, result):
-        self.success_rate = self.success_rate + (float(result) / self.avg_n) - (float(self.prev_success) / self.avg_n)
-        self.prev_success = result
+    def _update_stats(self, reached_goal):
+        self.success_queue.append(float(reached_goal))
+        self.success_rate = np.mean(self.success_queue)
 
 
     def reached_goal(self, pose, goal):

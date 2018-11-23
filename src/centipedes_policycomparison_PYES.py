@@ -413,7 +413,7 @@ policyfunctions = [ConvPolicy8]
 
 for p in policyfunctions:
     print("Training with {} policy.".format(p.__name__))
-    fbest, policy = train((env_name, p(N).float(), 10000, True))
+    fbest, policy = train((env_name, p(N).float(), 10, False))
     print("Policy {} max score: {}".format(p.__name__, fbest))
     T.save(policy, "agents/ES/{}.p".format(p.__name__))
 
