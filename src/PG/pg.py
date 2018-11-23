@@ -165,3 +165,5 @@ if __name__=="__main__":
     V = Valuefun(env)
     params = {"iters" : 1000, "batchsize" : 128, "gamma" : 0.98}
     train(env, policy, V, iters)
+
+    # TODO: debug and test
