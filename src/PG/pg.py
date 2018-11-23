@@ -49,26 +49,14 @@ def train(env, policy, V, params):
 
         # If enough data gathered, then perform update
         if batch_ctr == params["batchsize"]:
-            # Calculate episode advantages
-            batch_advantages = calc_advantages(V, batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals)
-            batch_advantages = T.FloatTensor(batch_advantages)
 
             # Refit value function
-            # TODO:
+            loss_V = update_V(batch_states, batch_rewards, batch_next_states)
 
-            # Get action log probabilities
-            log_probs = policy(batch_action, batch_states)
+            # Update policy
+            loss_policy = update_policy(V, batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals)
 
-            # Calculate loss function
-            loss = -T.mean(log_probs * batch_advantages)
-
-            # Backward pass on policy
-            policy_optimizer.zero_grad()
-            loss.backward()
-
-            # Step policy update
-            policy_optimizer.step()
-
+            print("Episode {}/{}, loss_V: {}, loss_policy: {}".format(i, param["iters"], loss_V, loss_policy))
 
             # Finally reset all batch lists
             batch_ctr = 0
@@ -79,6 +67,27 @@ def train(env, policy, V, params):
             batch_new_states = []
             batch_terminals = []
 
+def update_V(batch_states, batch_rewards, batch_next_states):
+    pass
+
+
+def update_policy(V, batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals):
+    # Calculate episode advantages
+    batch_advantages = calc_advantages(V, batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals)
+    batch_advantages = T.FloatTensor(batch_advantages)
+
+    # Get action log probabilities
+    log_probs = policy(batch_action, batch_states)
+
+    # Calculate loss function
+    loss = -T.mean(log_probs * batch_advantages)
+
+    # Backward pass on policy
+    policy_optimizer.zero_grad()
+    loss.backward()
+
+    # Step policy update
+    policy_optimizer.step()
 
 def calc_advantages(batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals):
     pass

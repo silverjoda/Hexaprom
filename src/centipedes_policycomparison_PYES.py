@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import pytorch_ES
-
+import os
 
 class Baseline(nn.Module):
     def __init__(self):
@@ -400,7 +400,9 @@ def train(params):
     except KeyboardInterrupt:
         print("User interrupted process.")
 
-    return -es.result.fbest
+    pytorch_ES.vector_to_parameters(T.from_numpy(es.result.xbest.astype(np.float32)), policy.parameters())
+
+    return -es.result.fbest, policy
 
 N = 8
 env_name = "Centipede{}-v0".format(N)
@@ -413,10 +415,21 @@ policyfunctions = [ConvPolicy8]
 
 for p in policyfunctions:
     print("Training with {} policy.".format(p.__name__))
-    fbest, policy = train((env_name, p(N).float(), 10, False))
+    fbest, policy = train((env_name, p(N).float(), 1, False))
     print("Policy {} max score: {}".format(p.__name__, fbest))
-    T.save(policy, "agents/ES/{}.p".format(p.__name__))
+    ctr = 0
+    while os.path.exists("agents/ES/{}_{}.p".format(p.__name__, ctr)):
+        ctr += 1
+    T.save(policy, "agents/ES/{}_{}.p".format(p.__name__, ctr))
 
+exit()
+
+# Evaluate
+policy = T.load("agents/ES/ConvPolicy8_0.p")
+f = f_wrapper(env, policy, True)
+for i in range(10):
+    r = f(pytorch_ES.parameters_to_vector(policy.parameters()).detach().numpy())
+    print(r)
 
 print("Done, exiting.")
 exit()
