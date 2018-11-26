@@ -144,7 +144,7 @@ def update_V(V, V_optim, gamma, batch_states, batch_rewards, batch_terminals):
 
     targets = T.cat(targets)
 
-    # MSE loss
+    # MSE loss#
     MSE = T.nn.MSELoss()
     loss = MSE(targets, Vs)
     loss.backward()
