@@ -11,11 +11,11 @@ class Policy(nn.Module):
         self.obs_dim = env.observation_space.shape[0]
         self.act_dim = env.action_space.shape[0]
 
-        self.fc1 = nn.Linear(self.obs_dim, 32)
-        self.fc2 = nn.Linear(32, 32)
-        self.fc3 = nn.Linear(32, self.act_dim)
+        self.fc1 = nn.Linear(self.obs_dim, 24)
+        self.fc2 = nn.Linear(24, 24)
+        self.fc3 = nn.Linear(24, self.act_dim)
 
-        self.log_std = T.zeros(self.act_dim)
+        self.log_std = nn.Parameter(T.zeros(1, self.act_dim))
 
 
     def forward(self, x):
@@ -23,6 +23,10 @@ class Policy(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+
+
+    def sample_action(self, s):
+        return T.normal(self.forward(s), T.exp(self.log_std))
 
 
     def log_probs(self, batch_states, batch_actions):
@@ -58,9 +62,6 @@ class Valuefun(nn.Module):
 
 def train(env, policy, V, params):
 
-    act_dim = env.action_space.shape[0]
-    obs_dim = env.observation_space.shape[0]
-
     policy_optim = T.optim.Adam(policy.parameters(), lr=params["policy_lr"])
     V_optim = T.optim.Adam(V.parameters(), lr=params["V_lr"])
 
@@ -71,17 +72,24 @@ def train(env, policy, V, params):
     batch_terminals = []
 
     batch_ctr = 0
+    batch_rew = 0
 
     for i in range(params["iters"]):
         s_0 = env.reset()
         done = False
 
+
         while not done:
             # Sample action from policy
-            action = policy(T.FloatTensor(s_0).unsqueeze(0)).detach() + T.randn(1, act_dim) * params["action_eps"]
+            action = policy.sample_action(T.FloatTensor(s_0).unsqueeze(0)).detach()
 
             # Step action
             s_1, r, done, _ = env.step(action.squeeze(0).numpy())
+
+            batch_rew += r
+
+            if params["animate"]:
+                env.render()
 
             # Record transition
             batch_states.append(T.FloatTensor(s_0).unsqueeze(0))
@@ -112,7 +120,7 @@ def train(env, policy, V, params):
             # Update policy
             loss_policy = update_policy(policy, policy_optim, V, batch_states, batch_actions, batch_advantages)
 
-            print("Episode {}/{}, loss_V: {}, loss_policy: {}".format(i, params["iters"], loss_V, loss_policy))
+            print("Episode {}/{}, loss_V: {}, loss_policy: {}, mean ep_rew: {}".format(i, params["iters"], loss_V, loss_policy, batch_rew / params["batchsize"]))
 
             # Finally reset all batch lists
             batch_ctr = 0
@@ -122,6 +130,8 @@ def train(env, policy, V, params):
             batch_rewards = []
             batch_new_states = []
             batch_terminals = []
+
+            batch_rew = 0
 
 
 
@@ -145,6 +155,7 @@ def update_V(V, V_optim, gamma, batch_states, batch_rewards, batch_terminals):
     targets = T.cat(targets)
 
     # MSE loss#
+    V_optim.zero_grad()
     MSE = T.nn.MSELoss()
     loss = MSE(targets, Vs)
     loss.backward()
@@ -168,6 +179,8 @@ def update_policy(policy, policy_optim, V, batch_states, batch_actions, batch_ad
     # Step policy update
     policy_optim.step()
 
+    return loss.data
+
 
 def calc_advantages(V, gamma, batch_states, batch_rewards, batch_next_states, batch_terminals):
     Vs = V(batch_states)
@@ -183,11 +196,11 @@ def calc_advantages(V, gamma, batch_states, batch_rewards, batch_next_states, ba
 
 
 if __name__=="__main__":
-    env_name = "Hopper-v2"
+    env_name = "Walker2d-v2"
     env = gym.make(env_name)
     policy = Policy(env)
     V = Valuefun(env)
-    params = {"iters" : 1000, "batchsize" : 128, "gamma" : 0.98, "policy_lr" : 0.001, "V_lr" : 0.001, "action_eps" : 0.5}
+    params = {"iters" : 100000, "batchsize" : 128, "gamma" : 0.98, "policy_lr" : 0.001, "V_lr" : 0.01, "action_eps" : 0.5, "animate" : True}
     train(env, policy, V, params)
 
     # TODO: debug and test
