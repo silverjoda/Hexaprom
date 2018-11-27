@@ -11,12 +11,13 @@ import pytorch_ES
 import os
 
 class Baseline(nn.Module):
-    def __init__(self):
+    def __init__(self, N):
         super(Baseline, self).__init__()
-        self.fc1 = nn.Linear(309, 148)
+        self.N_links = int(N / 2)
+        self.fc1 = nn.Linear(93, 40)
 
     def forward(self, x):
-        x = T.tanh(self.fc1(x))
+        x = self.fc1(x)
         return x
 
 
@@ -27,19 +28,153 @@ class ConvPolicy30(nn.Module):
 
         # rep conv
         self.conv_1 = nn.Conv1d(12, 6, kernel_size=3, stride=1)
-        self.conv_2 = nn.Conv1d(6, 4, kernel_size=3, stride=1)
-        self.conv_3 = nn.Conv1d(4, 4, kernel_size=3, stride=1)
+        self.conv_2 = nn.Conv1d(6, 8, kernel_size=3, stride=1)
+        self.conv_3 = nn.Conv1d(8, 8, kernel_size=3, stride=1)
         self.downsample = nn.AdaptiveAvgPool1d(5)
         self.pool = nn.AdaptiveAvgPool1d(1)
 
         # Embedding layers
-        self.conv_emb_1 = nn.Conv1d(6, 4, kernel_size=1, stride=1)
-        self.conv_emb_2 = nn.Conv1d(4, 4, kernel_size=1, stride=1)
+        self.conv_emb_1 = nn.Conv1d(10, 10, kernel_size=1, stride=1)
+        self.conv_emb_2 = nn.Conv1d(10, 10, kernel_size=1, stride=1)
 
-        self.deconv_1 = nn.ConvTranspose1d(4, 4, kernel_size=3, stride=1)
-        self.deconv_2 = nn.ConvTranspose1d(4, 2, kernel_size=3, stride=1)
-        self.deconv_3 = nn.ConvTranspose1d(2, 2, kernel_size=3, stride=1)
-        self.deconv_4 = nn.ConvTranspose1d(14, 6, kernel_size=3, stride=1, padding=1)
+        self.deconv_1 = nn.ConvTranspose1d(10, 6, kernel_size=3, stride=1)
+        self.deconv_2 = nn.ConvTranspose1d(6, 6, kernel_size=3, stride=1)
+        self.deconv_3 = nn.ConvTranspose1d(6, 6, kernel_size=3, stride=1)
+        self.deconv_4 = nn.ConvTranspose1d(18, 6, kernel_size=3, stride=1, padding=1)
+        self.upsample = nn.Upsample(size=13)
+
+        self.afun = F.tanh
+
+    def forward(self, x):
+        obs = x[:, :7]
+        obsd = x[:, 7 + self.N_links * 6 - 2: 7 + self.N_links * 6 - 2 + 6]
+
+        # Get psi angle from observation quaternion
+        _, _, psi = quaternion.as_euler_angles(np.quaternion(*(obs[0,3:7].numpy())))
+        psi = T.tensor([psi], dtype=T.float32).unsqueeze(0)
+
+        # (psi, psid)
+        ext_obs = T.cat((psi, obsd[:, -1:]), 1)
+
+        # Joints angles
+        jl = T.cat((T.zeros(1, 2), x[:, 7:7 + self.N_links * 6 - 2]), 1)
+        jlrs = jl.view((1, 6, -1))
+
+        # Joint angle velocities
+        jdl = T.cat((T.zeros(1, 2), x[:, 7 + self.N_links * 6 - 2 + 6:]), 1)
+        jdlrs = jdl.view((1, 6, -1))
+
+        jcat = T.cat((jlrs, jdlrs), 1) # Concatenate j and jd so that they are 2 parallel channels
+
+        fm_c1 = self.afun(self.conv_1(jcat))
+        fm_c1_ds = self.downsample(fm_c1)
+        fm_c2 = self.afun(self.conv_2(fm_c1_ds))
+        fm_c3 = self.afun(self.conv_3(fm_c2))
+
+        # Avg pool through link channels
+        fm_links = self.pool(fm_c3) # (1, N, 1)
+
+        # Combine obs with featuremaps
+        emb_1 = self.afun(self.conv_emb_1(T.cat((fm_links, ext_obs.unsqueeze(2)),1)))
+        emb_2 = self.afun(self.conv_emb_2(emb_1))
+
+        # Project back to action space
+        fm_dc1 = self.afun(self.deconv_1(emb_2))
+        fm_dc2 = self.afun(self.deconv_2(fm_dc1))
+        fm_dc2_us = self.upsample(fm_dc2)
+        fm_dc3 = self.afun(self.deconv_3(fm_dc2_us))
+        fm_dc4 = self.deconv_4(T.cat((fm_dc3, jcat), 1))
+
+        acts = fm_dc4.squeeze(2).view((1, -1))
+
+        return acts[:, 2:]
+
+
+class ConvPolicy14(nn.Module):
+    def __init__(self, N):
+        super(ConvPolicy14, self).__init__()
+        self.N_links = int(N / 2)
+
+        # rep conv
+        self.conv_1 = nn.Conv1d(12, 4, kernel_size=3, stride=1, padding=1)
+        self.conv_2 = nn.Conv1d(4, 4, kernel_size=3, stride=1, padding=1)
+        self.conv_3 = nn.Conv1d(4, 4, kernel_size=3, stride=1, padding=1)
+        self.conv_4 = nn.Conv1d(4, 3, kernel_size=3, stride=1, padding=0)
+
+        self.downsample = nn.AdaptiveAvgPool1d(3)
+
+        self.deconv_1 = nn.ConvTranspose1d(3, 4, kernel_size=3, stride=1, padding=0)
+        self.deconv_2 = nn.ConvTranspose1d(8, 4, kernel_size=3, stride=1, padding=1)
+        self.deconv_3 = nn.ConvTranspose1d(8, 4, kernel_size=3, stride=1, padding=1)
+        self.deconv_4 = nn.ConvTranspose1d(16, 6, kernel_size=3, stride=1, padding=1)
+
+        self.afun = T.tanh
+
+    def forward(self, x):
+        obs = x[:, :7]
+        obsd = x[:, 7 + self.N_links * 6 - 2: 7 + self.N_links * 6 - 2 + 6]
+
+        # Get psi angle from observation quaternion
+        _, _, psi = quaternion.as_euler_angles(np.quaternion(*(obs[0,3:7].numpy())))
+        psi = T.tensor([psi], dtype=T.float32).unsqueeze(0)
+
+        # (psi, psid)
+        ext_obs = T.cat((psi, obsd[:, 0:1], obsd[:, 5:6]), 1)
+
+        # Joints angles
+        jl = T.cat((T.zeros(1, 2), x[:, 7:7 + self.N_links * 6 - 2]), 1)
+        jlrs = jl.view((1, 6, -1))
+
+        # Joint angle velocities
+        jdl = T.cat((T.zeros(1, 2), x[:, 7 + self.N_links * 6 - 2 + 6:]), 1)
+        jdlrs = jdl.view((1, 6, -1))
+
+        jcat = T.cat((jlrs, jdlrs), 1) # Concatenate j and jd so that they are 2 parallel channels
+
+        fm_c1 = self.afun(self.conv_1(jcat))
+        fm_c2 = self.afun(self.conv_2(fm_c1))
+        fm_c2_ds = self.downsample(fm_c2)
+        fm_c3 = self.afun(self.conv_3(fm_c2_ds))
+        fm_c4 = self.afun(self.conv_4(fm_c3))
+
+        # Avg pool through link channels
+        fm_comb = fm_c4 + ext_obs.unsqueeze(2)
+
+        # Project back to action space
+        fm_dc1 = self.afun(self.deconv_1(fm_comb))
+        fm_dc2 = self.afun(self.deconv_2(T.cat((fm_dc1, fm_c3), 1)))
+        fm_dc2_us = F.interpolate(fm_dc2, size=7)
+        fm_dc3 = self.afun(self.deconv_3(T.cat((fm_dc2_us, fm_c2), 1)))
+        fm_dc4 = self.deconv_4(T.cat((fm_dc3, jcat), 1))
+
+        acts = fm_dc4.squeeze(2).view((1, -1))
+
+        return acts[:, 2:]
+
+
+class ConvPolicy30x(nn.Module):
+    def __init__(self, N):
+        super(ConvPolicy30x, self).__init__()
+        self.N_links = int(N / 2)
+
+        # rep conv
+        self.conv_1 = nn.Conv1d(12, 4, kernel_size=3, stride=1)
+        self.conv_2 = nn.Conv1d(4, 2, kernel_size=3, stride=1)
+        self.conv_3 = nn.Conv1d(2, 1, kernel_size=3, stride=1)
+        self.downsample = nn.AdaptiveAvgPool1d(5)
+        self.pool = nn.AdaptiveAvgPool1d(1)
+
+        # TODO: Don't use downsampling, Leave the temporal features (however many there are left in the end). Avg pool
+        # TODO: to combine with embedding and then recombine with conv feature on the way to action space
+
+        # Embedding layers
+        self.conv_emb_1 = nn.Conv1d(10, 10, kernel_size=1, stride=1)
+        self.conv_emb_2 = nn.Conv1d(10, 10, kernel_size=1, stride=1)
+
+        self.deconv_1 = nn.ConvTranspose1d(10, 6, kernel_size=3, stride=1)
+        self.deconv_2 = nn.ConvTranspose1d(6, 6, kernel_size=3, stride=1)
+        self.deconv_3 = nn.ConvTranspose1d(6, 6, kernel_size=3, stride=1)
+        self.deconv_4 = nn.ConvTranspose1d(18, 6, kernel_size=3, stride=1, padding=1)
         self.upsample = nn.Upsample(size=13)
 
         self.afun = F.tanh
@@ -327,17 +462,80 @@ class StatePolicy(nn.Module):
         self.foot_r_list = [T.zeros(1, self.s_dim) for _ in range(self.N_links)]
 
 
+class StatePolicy(nn.Module):
+    def __init__(self, N):
+        super(StatePolicy, self).__init__()
+        self.N_links = int(N / 2)
+
+        # Rep conv
+        self.conv_1 = nn.Conv1d(7, 7, kernel_size=3, stride=1, padding=1)
+
+        # Obs to state
+        self.comp_mat = nn.Parameter(T.randn(1, 7, 1, 3))
+
+        # State to action
+        self.act_mat = nn.Parameter(T.randn(1, 6, 1, 2))
+
+        # States
+        self.reset()
+
+        self.afun = T.tanh
+
+    def forward(self, x):
+        obs = x[:, :7]
+        obsd = x[:, 7 + self.N_links * 6 - 2: 7 + self.N_links * 6 - 2 + 6]
+
+        # Get psi angle from observation quaternion
+        _, _, psi = quaternion.as_euler_angles(np.quaternion(*(obs[0,3:7].numpy())))
+        psi = T.tensor([psi], dtype=T.float32).unsqueeze(0)
+
+        # (psi, psid)
+        ext_rs = T.cat((psi.view(1,1,1,1), obsd[:, 0:1].view(1,1,1,1)), 3).repeat(1,1,self.N_links,1)
+
+        # Joints angles
+        jl = T.cat((T.zeros(1, 2), x[:, 7:7 + self.N_links * 6 - 2]), 1)
+        jlrs = jl.view((1, 6, self.N_links, 1))
+
+        # Joint angle velocities
+        jdl = T.cat((T.zeros(1, 2), x[:, 7 + self.N_links * 6 - 2 + 6:]), 1)
+        jdlrs = jdl.view((1, 6, self.N_links, 1))
+
+        obscat = T.cat((T.cat((jlrs, jdlrs), 3), ext_rs), 1) # Concatenate j and jd so that they are 2 parallel channels
+
+        comp_mat_full = self.comp_mat.repeat(1,1,self.N_links,1)
+        states = self.states
+        for i in range(3):
+            # Concatenate observations with states
+            x = T.cat((obscat, states), 3)
+
+            # Multiply elementwise through last layer to get prestate map
+            x = (x * comp_mat_full).sum(3)
+
+            # Convolve prestate map to get new states
+            states = self.conv_1(x).unsqueeze(3)
+
+        # Turn states into actions
+        acts = self.act_mat.repeat(1,1,self.N_links,1) * T.cat((states[:,:6,:,:], jdlrs), 3)
+        acts = acts.sum(3).view((1, -1))
+
+        return acts[:, 2:]
+
+    def reset(self):
+        self.states = T.randn(1, 7, self.N_links, 1)
+
+
 def f_wrapper(env, policy, animate):
     def f(w):
         reward = 0
         done = False
         obs = env.reset()
+        policy.reset()
 
         # Inject current parameters into policy ## CONSIDER MAKING HARD COPY OF POLICY HERE NOT TO INTERFERE WITH INITIAL POLICY ##
         pytorch_ES.vector_to_parameters(T.from_numpy(w.astype(np.float32)), policy.parameters())
 
         step_ctr = 0
-        step_ctr_lim = 700
+        step_ctr_lim = 300
 
         while not done:
 
@@ -355,7 +553,7 @@ def f_wrapper(env, policy, animate):
 
             step_ctr += 1
             if step_ctr > step_ctr_lim:
-                break
+                done = True
 
         return -reward
     return f
@@ -407,15 +605,30 @@ def train(params):
 N = 8
 env_name = "Centipede{}-v0".format(N)
 env = gym.make(env_name)
+
 print(env.observation_space, env.action_space)
 #policyfunctions = [Baseline, ConvPolicy, SymPolicy, RecPolicy, AggregPolicy]
-policyfunctions = [ConvPolicy8]
+policyfunctions = [StatePolicy]
 
-# NOTE: GEAR REDUCED TO 40 IN XML
+#===========
+# M = 100
+# act = env.action_space.sample()
+# obs = env.reset()
+# p = Baseline()
+# import time
+# t1 = time.clock()
+# for i in range(M):
+#     #env.step(act)
+#     p(T.FloatTensor(obs).unsqueeze(0))
+# t2 = time.clock()
+#
+# print((t2-t1)/M)
+# exit()
+# #===========
 
 for p in policyfunctions:
     print("Training with {} policy.".format(p.__name__))
-    fbest, policy = train((env_name, p(N).float(), 1, False))
+    fbest, policy = train((env_name, p(N).float(), 10000, True))
     print("Policy {} max score: {}".format(p.__name__, fbest))
     ctr = 0
     while os.path.exists("agents/ES/{}_{}.p".format(p.__name__, ctr)):

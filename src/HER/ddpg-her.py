@@ -105,8 +105,6 @@ class DDPG:
 
     def train(self, animate=False):
 
-        # TODO: CHANGE TO VANILLA DDPG AND TEST
-
         print('Starting training...')
         
         for i in range(NUM_EPISODES):
