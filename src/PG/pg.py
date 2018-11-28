@@ -120,22 +120,11 @@ def train(env, policy, V, params):
             #batch_advantages = calc_advantages(V, params["gamma"], batch_states, batch_rewards, batch_new_states, batch_terminals)
             batch_advantages = calc_advantages_MC(params["gamma"], batch_rewards, batch_terminals)
 
-            policy_old = deepcopy(policy)
-
-            # Do ppo_update
-            for k in range(8):
-                c_eps = 0.2
-                log_probs_new = policy.log_probs(batch_states, batch_actions)
-                log_probs_old = policy_old.log_probs(batch_states, batch_actions)
-                r = log_probs_new / log_probs_old
-                loss = -T.mean(T.min(r * batch_advantages, r.clamp(1 - c_eps, 1 + c_eps) * batch_advantages))
-                policy_optim.zero_grad()
-                loss.backward()
-                policy_optim.step()
+            #update_ppo(policy, batch_states, batch_actions, batch_advantages)
 
             # Update policy
-            #loss_policy = update_policy(policy, policy_optim, batch_states, batch_actions, batch_advantages)
-            loss_policy = None
+            loss_policy = update_policy(policy, policy_optim, batch_states, batch_actions, batch_advantages)
+            #loss_policy = None
 
             print("Episode {}/{}, loss_V: {}, loss_policy: {}, mean ep_rew: {}, std: {}".format(i, params["iters"], loss_V, loss_policy, batch_rew / params["batchsize"], T.exp(policy.log_std).detach().numpy()))
 
@@ -148,6 +137,20 @@ def train(env, policy, V, params):
             batch_rewards = []
             batch_new_states = []
             batch_terminals = []
+
+
+def update_ppo(policy, batch_states, batch_actions, batch_advantages, policy_optim):
+    log_probs_old = policy.log_probs(batch_states, batch_actions).detach()
+
+    # Do ppo_update
+    for k in range(8):
+        c_eps = 0.2
+        log_probs_new = policy.log_probs(batch_states, batch_actions)
+        r = log_probs_new / log_probs_old
+        loss = -T.mean(T.min(r * batch_advantages, r.clamp(1 - c_eps, 1 + c_eps) * batch_advantages))
+        policy_optim.zero_grad()
+        loss.backward()
+        policy_optim.step()
 
 
 def update_V(V, V_optim, gamma, batch_states, batch_rewards, batch_terminals):
