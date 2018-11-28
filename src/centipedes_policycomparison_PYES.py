@@ -602,7 +602,7 @@ def train(params):
 
     return -es.result.fbest, policy
 
-N = 8
+N = 30
 env_name = "Centipede{}-v0".format(N)
 env = gym.make(env_name)
 

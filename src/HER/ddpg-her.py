@@ -18,29 +18,26 @@ import numpy as np
 import random
 from copy import deepcopy
 
-import matplotlib.pyplot as plt
-
-from IPython import display
 import os
 
 # Files
 from HER.noise import OrnsteinUhlenbeckActionNoise as OUNoise
 from HER.replaybuffer import Buffer
-from HER.actorcritic import Actor, Critic
+from HER.actorcritic_her import Actor, Critic
 
 # Hyperparameters
 ACTOR_LR = 0.001
-CRITIC_LR = 0.001
+CRITIC_LR = 0.01
 MINIBATCH_SIZE = 128
 NUM_EPISODES = 100000
 MU = 0
-SIGMA = 0.3
-BUFFER_SIZE = 1000000
-DISCOUNT = 0.98
+SIGMA = 0.2
+BUFFER_SIZE = 10000000
+DISCOUNT = 0.99
 TAU = 0.001
 WARMUP = 160
 EPSILON = 1.0
-EPSILON_DECAY = 1e-9
+EPSILON_DECAY = 1e-8
 
 
 class DDPG:
@@ -138,6 +135,8 @@ class DDPG:
                 new_observations.append(obs_new)
 
                 ep_reward += r
+
+                obs = obs_new
 
             final_pose = env.get_pose(obs)
 

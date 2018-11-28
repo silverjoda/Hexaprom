@@ -18,7 +18,7 @@ import numpy as np
 import random
 from copy import deepcopy
 
-import matplotlib.pyplot as plt
+import utils
 
 from IPython import display
 import os
@@ -26,28 +26,28 @@ import os
 # Files
 from HER.noise import OrnsteinUhlenbeckActionNoise as OUNoise
 from HER.replaybuffer import Buffer
-from HER.actorcritic import Actor, Critic
+from HER.actorcritic_ddpg import Actor, Critic
 
 # Hyperparameters
-ACTOR_LR = 0.001
+ACTOR_LR = 0.0001
 CRITIC_LR = 0.001
-MINIBATCH_SIZE = 128
+MINIBATCH_SIZE = 64
 NUM_EPISODES = 100000
 MU = 0
-SIGMA = 0.3
-BUFFER_SIZE = 1000000
-DISCOUNT = 0.98
+SIGMA = 0.2
+BUFFER_SIZE = 5000000
+DISCOUNT = 0.97
 TAU = 0.001
 WARMUP = 160
 EPSILON = 1.0
-EPSILON_DECAY = 1e-9
+EPSILON_DECAY = 1e-6
 
 
 class DDPG:
     def __init__(self, env):
         self.env = env
-        self.state_dim = env.obs_dim
-        self.act_dim = env.act_dim
+        self.state_dim = env.observation_space.shape[0]
+        self.act_dim = env.action_space.shape[0]
         self.actor = Actor(self.env)
         self.critic = Critic(self.env)
         self.targetActor = deepcopy(Actor(self.env))
@@ -73,10 +73,9 @@ class DDPG:
         y_i = []
         for r,t,q in zip(rewardBatch, terminalBatch, Qvals):
             if t:
-                y_i.append(r.unsqueeze(0))
+                y_i.append(r)
             else:
                 y_i.append(r + self.discount * q)
-
         y_i = T.stack(y_i)
 
         return y_i
@@ -104,95 +103,67 @@ class DDPG:
 
 
     def train(self, animate=False):
-
-        # TODO: CHANGE TO VANILLA DDPG AND TEST
-
         print('Starting training...')
         
         for i in range(NUM_EPISODES):
-            obs, goal = self.env.reset()
+            obs = self.env.reset()
             self.noise.reset()
             done = False
             ep_reward = 0
 
-            observations = []
-            new_observations = []
-            actions = []
-            terminals = []
 
             while not done:
 
                 # Get action
-                c_obs = T.FloatTensor(np.concatenate([obs, goal]).astype(np.float32)).unsqueeze(0)
-
-                action = self.getMaxAction(c_obs)
+                action = self.getMaxAction(utils.to_tensor(obs, True)).numpy()[0]
 
                 # Step episode
-                obs_new, r, done, _ = self.env.step(action.numpy())
+                obs_new, r, done, _ = self.env.step(action)
 
                 if animate:
                     self.env.render()
 
-                # Add new data
-                observations.append(obs)
-                actions.append(action)
-                terminals.append(done)
-                new_observations.append(obs_new)
-
                 ep_reward += r
-
-            final_pose = env.get_pose(obs)
-
-            # Append all hindsight transitions
-            for o,a,t,n_o in zip(observations,actions,terminals,new_observations):
-                c_obs = T.FloatTensor(np.concatenate([o, final_pose]).astype(np.float32)).unsqueeze(0)
-                next_c_obs = T.FloatTensor(np.concatenate([n_o, final_pose]).astype(np.float32)).unsqueeze(0)
-
-                # Reward is 1 if we reached our terminal goal (in HER we always get rew 1 when we reach terminal goal)
-                r = 1. if t else 0
+                obs = obs_new
 
                 # Add transition
-                self.replayBuffer.append((c_obs, a, next_c_obs, r, t))
+                self.replayBuffer.append((obs, action, obs_new, r, done))
 
-            # Training loop
-            if len(self.replayBuffer) >= self.warmup:
+                # Training loop
+                if len(self.replayBuffer) >= self.batchSize:
 
-                curStateBatch, actionBatch, nextStateBatch, \
-                rewardBatch, terminalBatch = self.replayBuffer.sample_batch(self.batchSize)
-                curStateBatch = T.cat(curStateBatch)
-                actionBatch = T.cat(actionBatch)
-                nextStateBatch = T.cat(nextStateBatch)
-                rewardBatch = T.from_numpy(np.asarray(rewardBatch).astype(np.float32))
+                    curStateBatch, actionBatch, nextStateBatch, \
+                    rewardBatch, terminalBatch = self.replayBuffer.sample_batch(self.batchSize)
 
-                qPredBatch = self.critic(curStateBatch, actionBatch)
-                qTargetBatch = self.getQTarget(nextStateBatch, rewardBatch, terminalBatch)
+                    qPredBatch = self.critic(curStateBatch, actionBatch)
+                    qTargetBatch = self.getQTarget(nextStateBatch, rewardBatch, terminalBatch)
 
-                # Critic update
-                self.criticOptim.zero_grad()
-                criticLoss = self.criticLoss(qPredBatch, qTargetBatch)
+                    # Critic update
+                    self.criticOptim.zero_grad()
+                    criticLoss = self.criticLoss(qPredBatch, qTargetBatch)
 
-                criticLoss.backward()
-                self.criticOptim.step()
+                    criticLoss.backward()
+                    self.criticOptim.step()
 
-                # Actor update
-                self.actorOptim.zero_grad()
-                actorLoss = -T.mean(self.critic(curStateBatch, self.actor(curStateBatch)))
-                actorLoss.backward()
-                self.actorOptim.step()
+                    # Actor update
+                    self.actorOptim.zero_grad()
+                    actorLoss = -T.mean(self.critic(curStateBatch, self.actor(curStateBatch)))
+                    actorLoss.backward()
+                    self.actorOptim.step()
 
-                # Update Targets
-                self.updateTargets(self.targetActor, self.actor)
-                self.updateTargets(self.targetCritic, self.critic)
-                self.epsilon -= self.epsilon_decay
+                    # Update Targets
+                    self.updateTargets(self.targetActor, self.actor)
+                    self.updateTargets(self.targetCritic, self.critic)
 
+                    if i % 10 == 0 and done:
+                        print("Episode {}/{}, ep reward: {}, actr loss: {}, critic loss: {}".format(i, NUM_EPISODES, ep_reward, actorLoss, criticLoss))
 
-                if i % 10 == 0:
-                    print("Episode {}/{}, ep reward: {}, actr loss: {}, critic loss: {}, success rate: {}".format(i, NUM_EPISODES, ep_reward, actorLoss, criticLoss, env.success_rate))
+            self.epsilon -= self.epsilon_decay
 
 
 if __name__=="__main__":
     import gym
-    env = AntG()
+    env = gym.make("Hopper-v2")
     agent = DDPG(env)
     #agent.loadCheckpoint(Path to checkpoint)
     agent.train(animate=True)
