@@ -8,10 +8,9 @@ Website: https://sameera-lanka.com
 import torch
 import torch as T
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.optim as optim
 
-from HER.ant_goal_env import AntG
+torch.set_num_threads(2)
 
 # Lib
 import numpy as np
@@ -19,9 +18,6 @@ import random
 from copy import deepcopy
 
 import utils
-
-from IPython import display
-import os
 
 # Files
 from HER.noise import OrnsteinUhlenbeckActionNoise as OUNoise
@@ -31,12 +27,12 @@ from HER.actorcritic_ddpg import Actor, Critic
 # Hyperparameters
 ACTOR_LR = 0.0001
 CRITIC_LR = 0.001
-MINIBATCH_SIZE = 64
+MINIBATCH_SIZE = 32
 NUM_EPISODES = 100000
 MU = 0
 SIGMA = 0.2
 BUFFER_SIZE = 5000000
-DISCOUNT = 0.97
+DISCOUNT = 0.99
 TAU = 0.001
 WARMUP = 160
 EPSILON = 1.0
@@ -50,8 +46,8 @@ class DDPG:
         self.act_dim = env.action_space.shape[0]
         self.actor = Actor(self.env)
         self.critic = Critic(self.env)
-        self.targetActor = deepcopy(Actor(self.env))
-        self.targetCritic = deepcopy(Critic(self.env))
+        self.targetActor = deepcopy(self.actor)
+        self.targetCritic = deepcopy(self.critic)
         self.actorOptim = optim.Adam(self.actor.parameters(), lr=ACTOR_LR)
         self.criticOptim = optim.Adam(self.critic.parameters(), lr=CRITIC_LR)
         self.criticLoss = nn.MSELoss()
@@ -67,8 +63,7 @@ class DDPG:
 
     def getQTarget(self, nextStateBatch, rewardBatch, terminalBatch):
 
-        acts = self.targetActor(nextStateBatch)
-        Qvals = self.targetCritic(nextStateBatch, acts)
+        Qvals = self.targetCritic(nextStateBatch, self.targetActor(nextStateBatch))
 
         y_i = []
         for r,t,q in zip(rewardBatch, terminalBatch, Qvals):
@@ -95,9 +90,9 @@ class DDPG:
             Returns the action which maximizes the Q-value of the current state-action pair"""
 
         #noise = (self.epsilon * Variable(torch.FloatTensor(self.noise()))).detach()
-        noise = (self.epsilon * T.randn(self.act_dim)).detach()
+        noise = (self.epsilon * T.randn(self.act_dim))
 
-        action = self.actor(s).detach()
+        action = self.actor(s)
         actionNoise = action + noise
         return actionNoise
 
@@ -115,7 +110,7 @@ class DDPG:
             while not done:
 
                 # Get action
-                action = self.getMaxAction(utils.to_tensor(obs, True)).numpy()[0]
+                action = self.getMaxAction(utils.to_tensor(obs, True)).detach().numpy()[0]
 
                 # Step episode
                 obs_new, r, done, _ = self.env.step(action)
@@ -124,10 +119,11 @@ class DDPG:
                     self.env.render()
 
                 ep_reward += r
-                obs = obs_new
 
                 # Add transition
                 self.replayBuffer.append((obs, action, obs_new, r, done))
+
+                obs = obs_new
 
                 # Training loop
                 if len(self.replayBuffer) >= self.batchSize:
@@ -163,7 +159,7 @@ class DDPG:
 
 if __name__=="__main__":
     import gym
-    env = gym.make("Hopper-v2")
+    env = gym.make("Ant-v3")
     agent = DDPG(env)
     #agent.loadCheckpoint(Path to checkpoint)
     agent.train(animate=True)

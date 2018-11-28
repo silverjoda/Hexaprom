@@ -32,11 +32,9 @@ class Actor(nn.Module):
             x = self.fc3(x)
             return x
 
-        x = F.relu(self.fc1(x))
-        x = self.bn1(x)
-        x = F.relu(self.fc2(x))
-        x = self.bn2(x)
-        x = self.fc3(x)
+        x = F.relu(self.bn1(self.fc1(x)))
+        x = F.relu(self.bn2(self.fc2(x)))
+        x = torch.tanh(self.fc3(x))
 
         return x
         
@@ -48,17 +46,16 @@ class Critic(nn.Module):
         self.obs_dim = env.observation_space.shape[0]
         self.act_dim = env.action_space.shape[0]
 
-        self.fc1 = nn.Linear(self.obs_dim, 64)
-        self.bn1 = nn.BatchNorm1d(64)
+        self.fc1 = nn.Linear(self.obs_dim, 128)
+        self.bn1 = nn.BatchNorm1d(128)
 
-        self.fc2 = nn.Linear(64 + self.act_dim, 64)
-        self.bn2 = nn.BatchNorm1d(64)
+        self.fc2 = nn.Linear(128 + self.act_dim, 128)
+        self.bn2 = nn.BatchNorm1d(128)
 
-        self.fc3 = nn.Linear(64, 1)
+        self.fc3 = nn.Linear(128, 1)
         
     def forward(self, s, a):
-        x = F.relu(self.fc1(s))
-        x = self.bn1(x)
+        x = F.relu(self.bn1(self.fc1(s)))
         x = F.relu(self.fc2(torch.cat([x, a], dim=1)))
         Qval = self.fc3(x)
         return Qval
