@@ -29,13 +29,13 @@ torch.set_num_threads(2)
 
 # Hyperparameters
 ACTOR_LR = 0.0005
-CRITIC_LR = 0.0001
+CRITIC_LR = 0.001
 MINIBATCH_SIZE = 64
 NUM_EPISODES = 100000
 MU = 0
 SIGMA = 0.2
 BUFFER_SIZE = 10000000
-DISCOUNT = 0.99
+DISCOUNT = 0.95
 TAU = 0.001
 WARMUP = 320
 EPSILON = 1.0
@@ -49,15 +49,15 @@ class DDPG:
         self.act_dim = env.act_dim
         self.actor = Actor(self.env)
         self.critic = Critic(self.env)
-        self.targetActor = deepcopy(Actor(self.env))
-        self.targetCritic = deepcopy(Critic(self.env))
+        self.targetActor = deepcopy(self.actor)
+        self.targetCritic = deepcopy(self.critic)
         self.actorOptim = optim.Adam(self.actor.parameters(), lr=ACTOR_LR)
         self.criticOptim = optim.Adam(self.critic.parameters(), lr=CRITIC_LR)
         self.criticLoss = nn.MSELoss()
         self.noise = OUNoise(mu=np.zeros(self.act_dim), sigma=SIGMA)
         self.replayBuffer = Buffer(BUFFER_SIZE)
         self.batchSize = MINIBATCH_SIZE
-        self.discount = DISCOUNT
+        self.gamma = DISCOUNT
         self.warmup = WARMUP
         self.epsilon = EPSILON
         self.epsilon_decay = EPSILON_DECAY
@@ -65,16 +65,14 @@ class DDPG:
 
 
     def getQTarget(self, nextStateBatch, rewardBatch, terminalBatch):
-
-        acts = self.targetActor(nextStateBatch)
-        Qvals = self.targetCritic(nextStateBatch, acts)
+        Qvals = self.targetCritic(nextStateBatch, self.targetActor(nextStateBatch))
 
         y_i = []
         for r,t,q in zip(rewardBatch, terminalBatch, Qvals):
             if t:
                 y_i.append(r.unsqueeze(0))
             else:
-                y_i.append(r + self.discount * q)
+                y_i.append(r + self.gamma * q)
 
         y_i = T.stack(y_i)
 
@@ -133,47 +131,52 @@ class DDPG:
                 terminals.append(done)
                 new_observations.append(obs_new)
 
-                ep_reward += r
+                # Add standard experience replay jobby
+                next_c_obs = T.FloatTensor(np.concatenate([obs_new, goal]).astype(np.float32)).unsqueeze(0)
 
+                # Add transition
+                self.replayBuffer.append((c_obs, action, next_c_obs, r, done))
+
+                ep_reward += r
                 obs = obs_new
 
-            # Training loop
-            if len(self.replayBuffer) >= self.warmup:
-                curStateBatch, actionBatch, nextStateBatch, \
-                rewardBatch, terminalBatch = self.replayBuffer.sample_batch(self.batchSize)
-                curStateBatch = T.cat(curStateBatch)
-                actionBatch = T.cat(actionBatch)
-                nextStateBatch = T.cat(nextStateBatch)
-                rewardBatch = T.from_numpy(np.asarray(rewardBatch).astype(np.float32))
+                # Training loop
+                if len(self.replayBuffer) >= self.warmup:
+                    curStateBatch, actionBatch, nextStateBatch, \
+                    rewardBatch, terminalBatch = self.replayBuffer.sample_batch(self.batchSize)
 
-                qPredBatch = self.critic(curStateBatch, actionBatch)
-                qTargetBatch = self.getQTarget(nextStateBatch, rewardBatch, terminalBatch)
+                    curStateBatch = T.cat(curStateBatch)
+                    actionBatch = T.cat(actionBatch)
+                    nextStateBatch = T.cat(nextStateBatch)
+                    rewardBatch = T.from_numpy(np.asarray(rewardBatch).astype(np.float32))
 
-                # Critic update
-                self.criticOptim.zero_grad()
-                criticLoss = (qPredBatch - qTargetBatch).pow(2).mean()
+                    qPredBatch = self.critic(curStateBatch, actionBatch)
+                    qTargetBatch = self.getQTarget(nextStateBatch, rewardBatch, terminalBatch)
 
-                criticLoss.backward()
-                self.criticOptim.step()
+                    # Critic update
+                    self.criticOptim.zero_grad()
+                    criticLoss = (qPredBatch - qTargetBatch).pow(2).mean()
+                    criticLoss.backward()
+                    self.criticOptim.step()
 
-                # Actor update
-                self.actorOptim.zero_grad()
-                actorLoss = -T.mean(self.critic(curStateBatch, self.actor(curStateBatch)))
-                actorLoss.backward()
-                self.actorOptim.step()
+                    # Actor update
+                    self.actorOptim.zero_grad()
+                    actorLoss = -T.mean(self.critic(curStateBatch, self.actor(curStateBatch)))
+                    actorLoss.backward()
+                    self.actorOptim.step()
 
-                # Update Targets
-                self.updateTargets(self.targetActor, self.actor)
-                self.updateTargets(self.targetCritic, self.critic)
+                    # Update Targets
+                    self.updateTargets(self.targetActor, self.actor)
+                    self.updateTargets(self.targetCritic, self.critic)
 
-                if i % 10 == 0 and done:
-                    print(qPredBatch)
-                    print("Episode {}/{}, ep reward: {}, actr loss: {}, critic loss: {}, success rate: {}".format(i,
-                                                                                                                  NUM_EPISODES,
-                                                                                                                  ep_reward,
-                                                                                                                  actorLoss,
-                                                                                                                  criticLoss,
-                                                                                                                  env.success_rate))
+                    if i % 10 == 0 and done:
+                        #print(qPredBatch, qTargetBatch)
+                        print("Episode {}/{}, ep reward: {}, actr loss: {}, critic loss: {}, success rate: {}".format(i,
+                                                                                                                      NUM_EPISODES,
+                                                                                                                      ep_reward,
+                                                                                                                      actorLoss,
+                                                                                                                      criticLoss,
+                                                                                                                      env.success_rate))
 
             final_pose = env.get_pose(obs)
             self.epsilon -= self.epsilon_decay
@@ -184,7 +187,7 @@ class DDPG:
                 next_c_obs = T.FloatTensor(np.concatenate([o_, final_pose]).astype(np.float32)).unsqueeze(0)
 
                 # Reward is 1 if we reached our terminal goal (in HER we always get rew 1 when we reach terminal goal)
-                r = 1. if t else 0.
+                r = 1. if t else -0.01
 
                 # Add transition
                 self.replayBuffer.append((c_obs, a, next_c_obs, r, t))
@@ -194,6 +197,7 @@ class DDPG:
 
 
 if __name__=="__main__":
+    # TODO: FIX BY ADDING PHASE 1 WHERE WE ADD NORMAL EXPERIENCE REPLAY AND 2ND PHASE WHERE WE ADD HINDSIGHT TRANSITIONS
     import gym
     env = AntG()
     agent = DDPG(env)

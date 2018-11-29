@@ -21,21 +21,21 @@ class AntG:
 
     def reset(self):
         obs = self.env.reset()
-        pose = self.get_pose(obs)
-        self.goal = self._sample_goal(pose)
+        self.goal = self._sample_goal(self.get_pose(obs))
         return obs, self.goal
 
 
     def _sample_goal(self, pose):
-        x, y, psi = pose
-        nx = x + np.random.randn() * (2. + 3 * self.success_rate)
-        ny = y + np.random.randn() * (2. + 3 * self.success_rate)
-        npsi = y + np.random.randn() * (0.3 + 1 * self.success_rate)
+        while True:
+            x, y, psi = pose
+            nx = x + np.random.randn() * (2. + 3 * self.success_rate)
+            ny = y + np.random.randn() * (2. + 3 * self.success_rate)
+            npsi = y + np.random.randn() * (0.3 + 1 * self.success_rate)
 
-        goal = nx, ny, npsi
+            goal = nx, ny, npsi
 
-        if self.reached_goal(pose, goal):
-            return self._sample_goal(pose)
+            if not self.reached_goal(pose, goal):
+                break
 
         return goal
 
@@ -43,7 +43,7 @@ class AntG:
     def step(self, a):
 
         # Step inner env
-        obs, r, done, info = self.env.step(a)
+        obs, _, done, info = self.env.step(a)
 
         # Make relevant pose from observation (x,y,psi)
         pose = self.get_pose(obs)
@@ -57,17 +57,17 @@ class AntG:
         if reached_goal:
             print("SUCCESS")
 
-        # TODO: Fix stats update and success_rate
-
         # Update success rate
         if done:
             self._update_stats(reached_goal)
 
-        return obs, float(reached_goal), done, info
+        r = 1. if reached_goal else 0.
+
+        return obs, r, done, info
 
 
     def _update_stats(self, reached_goal):
-        self.success_queue.append(float(reached_goal))
+        self.success_queue.append(1. if reached_goal else 0.)
         self.success_rate = np.mean(self.success_queue)
 
 

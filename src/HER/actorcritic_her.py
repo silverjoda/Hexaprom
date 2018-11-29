@@ -58,9 +58,9 @@ class Critic(nn.Module):
         
     def forward(self, s, a):
         x = F.relu(self.fc1(s))
-        #x = self.bn1(x)
+        x = self.bn1(x)
         x = F.relu(self.fc2(torch.cat([x, a], dim=1)))
-        Qval = self.fc3(x)
+        Qval = F.sigmoid(self.fc3(x))
         return Qval
         
 
