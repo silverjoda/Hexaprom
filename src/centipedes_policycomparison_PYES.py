@@ -363,108 +363,6 @@ class RecPolicy(nn.Module):
 class StatePolicy(nn.Module):
     def __init__(self, N):
         super(StatePolicy, self).__init__()
-
-        # Amount of cells that the centipede has
-        self.N_links = int(N / 2)
-
-        # State dim
-        self.s_dim = 3
-
-        # Create states
-        self.reset()
-
-        # Master filter
-        self.f_m =  nn.Linear(5, self.s_dim)
-
-        # Rep filters
-        self.f_1 = nn.Linear(1 * self.s_dim + 2, self.s_dim)
-        self.f_6 = nn.Linear(4 * self.s_dim + 2, self.s_dim)
-        self.f_8 = nn.Linear(6 * self.s_dim + 2, self.s_dim)
-
-        self.afun = T.tanh
-
-
-    def forward(self, x):
-        obs = x[:, :7]
-        obsd = x[:, 7 + self.N_links * 6 - 2: 7 + self.N_links * 6 - 2 + 6]
-        obs_cat = T.cat((obs, obsd), 1)
-
-        obs_proc = None
-
-        jl = T.cat((T.zeros(1, 2).double(), x[:, 7:7 + self.N_links * 6 - 2]),1)
-        jdl = T.cat((T.zeros(1, 2).double(), x[:, 7 + self.N_links * 6 - 2 + 6:]),1)
-
-        self.m_s_new = self.f_m(T.cat(obs_proc, jl[0:1], jl[2:3], jl[4:5], jl[5:6]), 1)
-
-        # Vertebra lr
-        self.vert_list_new = []
-
-        # Left hip
-        self.hip_l_list_new = []
-
-        # Right hip
-        self.hip_r_list_new = []
-
-        # Left foot
-        self.foot_l_list_new = []
-
-        # Right foot
-        self.foot_r_list_new = []
-
-        for i in range(self.N_links):
-            shift = 6 * i
-            j = jl[:, shift:shift + 6]
-
-            self.vert_list_new.append(self.f_8(T.cat(j[:, 0:1], None), 1))
-
-        # States
-        self.m_s = self.m_s_new
-
-        # Vertebra lr
-        self.vert_list = self.vert_list_new
-
-        # Left hip
-        self.hip_l_list = self.hip_l_list_new
-
-        # Right hip
-        self.hip_r_list = self.hip_r_list_new
-
-        # Left foot
-        self.foot_l_list = self.foot_l_list_new
-
-        # Right foot
-        self.foot_r_list = self.foot_r_list_new
-
-
-        acts = None
-
-        return acts
-
-
-    def reset(self):
-
-        # States
-        self.m_s = T.zeros(1, self.s_dim)
-
-        # Vertebra lr
-        self.vert_list = [T.zeros(1, self.s_dim) for _ in range(self.N_links)]
-
-        # Left hip
-        self.hip_l_list = [T.zeros(1, self.s_dim) for _ in range(self.N_links)]
-
-        # Right hip
-        self.hip_r_list = [T.zeros(1, self.s_dim) for _ in range(self.N_links)]
-
-        # Left foot
-        self.foot_l_list = [T.zeros(1, self.s_dim) for _ in range(self.N_links)]
-
-        # Right foot
-        self.foot_r_list = [T.zeros(1, self.s_dim) for _ in range(self.N_links)]
-
-
-class StatePolicy(nn.Module):
-    def __init__(self, N):
-        super(StatePolicy, self).__init__()
         self.N_links = int(N / 2)
 
         # Rep conv
@@ -509,10 +407,10 @@ class StatePolicy(nn.Module):
             x = T.cat((obscat, states), 3)
 
             # Multiply elementwise through last layer to get prestate map
-            x = (x * comp_mat_full).sum(3)
+            x = self.afun((x * comp_mat_full).sum(3))
 
             # Convolve prestate map to get new states
-            states = self.conv_1(x).unsqueeze(3)
+            states = self.afun(self.conv_1(x).unsqueeze(3))
 
         # Turn states into actions
         acts = self.act_mat.repeat(1,1,self.N_links,1) * T.cat((states[:,:6,:,:], jdlrs), 3)
@@ -524,6 +422,68 @@ class StatePolicy(nn.Module):
         self.states = T.randn(1, 7, self.N_links, 1)
 
 
+class PhasePolicy(nn.Module):
+    def __init__(self, N):
+        super(PhasePolicy, self).__init__()
+        self.N_links = int(N / 2)
+
+        # Set phase states
+        self.reset()
+
+        # Increment matrix which will be added to phases every step
+        self.step_increment = T.ones(1, 6, self.N_links) * 0.01
+
+        self.conv_obs = nn.Conv1d(7, 6, kernel_size=3, stride=1, padding=1)
+        self.conv_phase = nn.Conv1d(6, 6, kernel_size=3, stride=1, padding=1)
+
+        self.afun = T.tanh
+
+
+    def step_phase(self):
+        self.phases = T.fmod(self.phases + self.step_increment, np.pi)
+
+
+    def modify_phase(self, mask):
+        self.phases = T.fmod(self.phases + mask, np.pi)
+
+
+    def reset(self):
+        self.phases = T.randn(1, 6, self.N_links) * 0.01
+
+
+    def forward(self, x):
+        obs = x[:, :7]
+
+        # Get psi angle from observation quaternion
+        _, _, psi = quaternion.as_euler_angles(np.quaternion(*(obs[0,3:7].numpy())))
+        psi = T.tensor([psi], dtype=T.float32).unsqueeze(0)
+
+        # (psi, psid)
+        ext_rs = psi.view(1,1,1).repeat(1,1,self.N_links)
+
+        # Joints angles
+        jl = T.cat((T.zeros(1, 2), x[:, 7:7 + self.N_links * 6 - 2]), 1)
+        jlrs = jl.view((1, 6, self.N_links))
+
+        obscat = T.cat((jlrs, ext_rs), 1) # Concatenate j and jd so that they are 2 parallel channels
+
+        phase_fm = self.afun(self.conv_obs(obscat))
+        phase_deltas = self.afun(self.conv_phase(phase_fm))
+
+        self.modify_phase(phase_deltas)
+        self.step_phase()
+
+        # Phases directly translate into torques
+        #acts = self.phases.view(1,-1) - (np.pi / 2)
+
+        # Phases are desired angles
+        acts = (((self.phases - (np.pi / 2)) - jlrs) * 0.1).view(1,-1)
+
+
+        return acts[:, 2:]
+
+
+
 def f_wrapper(env, policy, animate):
     def f(w):
         reward = 0
@@ -531,7 +491,6 @@ def f_wrapper(env, policy, animate):
         obs = env.reset()
         policy.reset()
 
-        # Inject current parameters into policy ## CONSIDER MAKING HARD COPY OF POLICY HERE NOT TO INTERFERE WITH INITIAL POLICY ##
         pytorch_ES.vector_to_parameters(T.from_numpy(w.astype(np.float32)), policy.parameters())
 
         step_ctr = 0
@@ -602,13 +561,13 @@ def train(params):
 
     return -es.result.fbest, policy
 
-N = 30
+N = 8
 env_name = "Centipede{}-v0".format(N)
 env = gym.make(env_name)
 
 print(env.observation_space, env.action_space)
 #policyfunctions = [Baseline, ConvPolicy, SymPolicy, RecPolicy, AggregPolicy]
-policyfunctions = [StatePolicy]
+policyfunctions = [PhasePolicy]
 
 #===========
 # M = 100

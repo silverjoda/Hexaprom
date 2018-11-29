@@ -6,6 +6,94 @@ import time
 import gym
 import utils
 from copy import deepcopy
+import quaternion
+
+class ConvPolicy8(nn.Module):
+    def __init__(self, env):
+        super(ConvPolicy8, self).__init__()
+        self.N_links = 4
+        self.act_dim = self.N_links * 6 - 2
+
+        # rep conv
+        self.conv_1 = nn.Conv1d(12, 4, kernel_size=3, stride=1, padding=1)
+        self.conv_2 = nn.Conv1d(4, 8, kernel_size=3, stride=1, padding=1)
+        self.conv_3 = nn.Conv1d(8, 8, kernel_size=3, stride=1)
+        self.conv_4 = nn.Conv1d(8, 8, kernel_size=2, stride=1)
+
+        # Embedding layers
+        self.conv_emb_1 = nn.Conv1d(10, 8, kernel_size=1, stride=1)
+        self.conv_emb_2 = nn.Conv1d(8, 8, kernel_size=1, stride=1)
+
+        self.deconv_1 = nn.ConvTranspose1d(8, 4, kernel_size=3, stride=1)
+        self.deconv_2 = nn.ConvTranspose1d(4, 4, kernel_size=3, stride=1, padding=1)
+        self.deconv_3 = nn.ConvTranspose1d(4, 8, kernel_size=3, stride=1, padding=1)
+        self.deconv_4 = nn.ConvTranspose1d(14, 6, kernel_size=3, stride=1, padding=1)
+
+        self.upsample = nn.Upsample(size=4)
+
+        self.afun = F.tanh
+
+        self.log_std = nn.Parameter(T.zeros(1, self.act_dim))
+
+    def forward(self, x):
+        N = x.shape[0]
+        obs = x[:, :7]
+        obsd = x[:, 7 + self.N_links * 6 - 2: 7 + self.N_links * 6 - 2 + 6]
+
+        # Get psi angle from observation quaternion
+        _, _, psi = quaternion.as_euler_angles(np.quaternion(*(obs[0,3:7].numpy())))
+        psi = T.tensor([psi], dtype=T.float32).unsqueeze(0).repeat(N,1)
+
+        # (psi, psid)
+        ext_obs = T.cat((psi, obsd[:, -1:]), 1)
+
+        # Joints angles
+        jl = T.cat((T.zeros(N, 2), x[:, 7:7 + self.N_links * 6 - 2]), 1)
+        jlrs = jl.view((N, 6, -1))
+
+        # Joint angle velocities
+        jdl = T.cat((T.zeros(N, 2), x[:, 7 + self.N_links * 6 - 2 + 6:]), 1)
+        jdlrs = jdl.view((N, 6, -1))
+
+        jcat = T.cat((jlrs, jdlrs), 1) # Concatenate j and jd so that they are 2 parallel channels
+
+        fm_c1 = self.afun(self.conv_1(jcat))
+        fm_c2 = self.afun(self.conv_2(fm_c1))
+        fm_c3 = self.afun(self.conv_3(fm_c2))
+        fm_c4 = self.afun(self.conv_4(fm_c3))
+
+        # Combine obs with featuremaps
+        emb_1 = self.afun(self.conv_emb_1(T.cat((fm_c4, ext_obs.unsqueeze(2)),1)))
+        emb_2 = self.afun(self.conv_emb_2(emb_1))
+
+        # Project back to action space
+        fm_dc1 = self.afun(self.deconv_1(emb_2))
+        fm_dc2 = self.afun(self.deconv_2(fm_dc1))
+        fm_dc3 = self.afun(self.deconv_3(fm_dc2))
+        fm_upsampled = self.upsample(fm_dc3)
+        fm_dc4 = self.deconv_4(T.cat((fm_upsampled, jlrs), 1))
+
+        acts = fm_dc4.squeeze(2).view((N, -1))
+
+        return acts[:, 2:]
+
+
+    def sample_action(self, s):
+        return T.normal(self.forward(s), T.exp(self.log_std))
+
+
+    def log_probs(self, batch_states, batch_actions):
+        # Get action means from policy
+        action_means = self.forward(batch_states)
+
+        # Calculate probabilities
+        log_std_batch = self.log_std.expand_as(action_means)
+        std = T.exp(log_std_batch)
+        var = std.pow(2)
+        log_density = - T.pow(batch_actions - action_means, 2) / (2 * var) - 0.5 * np.log(2 * np.pi) - log_std_batch
+
+        return log_density.sum(1, keepdim=True)
+
 
 class Policy(nn.Module):
     def __init__(self, env):
@@ -13,9 +101,9 @@ class Policy(nn.Module):
         self.obs_dim = env.observation_space.shape[0]
         self.act_dim = env.action_space.shape[0]
 
-        self.fc1 = nn.Linear(self.obs_dim, 24)
-        self.fc2 = nn.Linear(24, 24)
-        self.fc3 = nn.Linear(24, self.act_dim)
+        self.fc1 = nn.Linear(self.obs_dim, 64)
+        self.fc2 = nn.Linear(64, 32)
+        self.fc3 = nn.Linear(32, self.act_dim)
 
         self.log_std = nn.Parameter(T.zeros(1, self.act_dim))
 
@@ -80,12 +168,17 @@ def train(env, policy, V, params):
         s_0 = env.reset()
         done = False
 
+        step_ctr = 0
+
         while not done:
             # Sample action from policy
             action = policy.sample_action(utils.to_tensor(s_0, True)).detach()
 
             # Step action
             s_1, r, done, _ = env.step(action.squeeze(0).numpy())
+            step_ctr += 1
+            if step_ctr > 200:
+                done = True
 
             batch_rew += r
 
@@ -113,18 +206,18 @@ def train(env, policy, V, params):
             batch_new_states = T.cat(batch_new_states)
 
             # Refit value function
-            #loss_V = update_V(V, V_optim, params["gamma"], batch_states, batch_rewards, batch_terminals)
+            loss_V = update_V(V, V_optim, params["gamma"], batch_states, batch_rewards, batch_terminals)
             loss_V = None
 
             # Calculate episode advantages
             #batch_advantages = calc_advantages(V, params["gamma"], batch_states, batch_rewards, batch_new_states, batch_terminals)
             batch_advantages = calc_advantages_MC(params["gamma"], batch_rewards, batch_terminals)
 
-            #update_ppo(policy, batch_states, batch_actions, batch_advantages)
+            #update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantages)
 
             # Update policy
             loss_policy = update_policy(policy, policy_optim, batch_states, batch_actions, batch_advantages)
-            #loss_policy = None
+            loss_policy = None
 
             print("Episode {}/{}, loss_V: {}, loss_policy: {}, mean ep_rew: {}, std: {}".format(i, params["iters"], loss_V, loss_policy, batch_rew / params["batchsize"], T.exp(policy.log_std).detach().numpy()))
 
@@ -139,14 +232,14 @@ def train(env, policy, V, params):
             batch_terminals = []
 
 
-def update_ppo(policy, batch_states, batch_actions, batch_advantages, policy_optim):
+def update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantages):
     log_probs_old = policy.log_probs(batch_states, batch_actions).detach()
+    c_eps = 0.2
 
     # Do ppo_update
-    for k in range(8):
-        c_eps = 0.2
+    for k in range(4):
         log_probs_new = policy.log_probs(batch_states, batch_actions)
-        r = log_probs_new / log_probs_old
+        r = T.exp(log_probs_new - log_probs_old)
         loss = -T.mean(T.min(r * batch_advantages, r.clamp(1 - c_eps, 1 + c_eps) * batch_advantages))
         policy_optim.zero_grad()
         loss.backward()
@@ -188,7 +281,7 @@ def update_policy(policy, policy_optim, batch_states, batch_actions, batch_advan
     log_probs = policy.log_probs(batch_states, batch_actions)
 
     # Calculate loss function
-    loss = -T.mean(log_probs * batch_advantages)
+    loss = -T.mean((log_probs) * batch_advantages)
 
     # Backward pass on policy
     policy_optim.zero_grad()
