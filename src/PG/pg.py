@@ -213,7 +213,7 @@ def train(env, policy, V, params):
             #batch_advantages = calc_advantages(V, params["gamma"], batch_states, batch_rewards, batch_new_states, batch_terminals)
             batch_advantages = calc_advantages_MC(params["gamma"], batch_rewards, batch_terminals)
 
-            #update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantages)
+            update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantages)
 
             # Update policy
             loss_policy = update_policy(policy, policy_optim, batch_states, batch_actions, batch_advantages)
@@ -237,7 +237,7 @@ def update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantag
     c_eps = 0.2
 
     # Do ppo_update
-    for k in range(4):
+    for k in range(6):
         log_probs_new = policy.log_probs(batch_states, batch_actions)
         r = T.exp(log_probs_new - log_probs_old)
         loss = -T.mean(T.min(r * batch_advantages, r.clamp(1 - c_eps, 1 + c_eps) * batch_advantages))
@@ -281,7 +281,7 @@ def update_policy(policy, policy_optim, batch_states, batch_actions, batch_advan
     log_probs = policy.log_probs(batch_states, batch_actions)
 
     # Calculate loss function
-    loss = -T.mean((log_probs) * batch_advantages)
+    loss = -T.mean(log_probs * batch_advantages)
 
     # Backward pass on policy
     policy_optim.zero_grad()
@@ -324,9 +324,9 @@ def calc_advantages_MC(gamma, batch_rewards, batch_terminals):
 
 
 if __name__=="__main__":
-    env_name = "Hopper-v2"
+    env_name = "Centipede8-v0"
     env = gym.make(env_name)
-    policy = Policy(env)
+    policy = ConvPolicy8(env)
     V = Valuefun(env)
     params = {"iters" : 100000, "batchsize" : 64, "gamma" : 0.99, "policy_lr" : 0.007, "V_lr" : 0.007, "animate" : True}
     train(env, policy, V, params)

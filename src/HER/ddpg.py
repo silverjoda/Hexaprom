@@ -21,13 +21,13 @@ import utils
 
 # Files
 from HER.noise import OrnsteinUhlenbeckActionNoise as OUNoise
-from HER.replaybuffer import Buffer
+from HER.replaybuffer_ddpg import Buffer
 from HER.actorcritic_ddpg import Actor, Critic
 
 # Hyperparameters
 ACTOR_LR = 0.0001
 CRITIC_LR = 0.001
-MINIBATCH_SIZE = 32
+MINIBATCH_SIZE = 64
 NUM_EPISODES = 100000
 MU = 0
 SIGMA = 0.2
@@ -106,6 +106,7 @@ class DDPG:
             done = False
             ep_reward = 0
 
+            step_ctr = 0
 
             while not done:
 
@@ -114,6 +115,9 @@ class DDPG:
 
                 # Step episode
                 obs_new, r, done, _ = self.env.step(action)
+                step_ctr += 1
+                if step_ctr > 300:
+                    done = True
 
                 if animate:
                     self.env.render()
@@ -136,7 +140,7 @@ class DDPG:
 
                     # Critic update
                     self.criticOptim.zero_grad()
-                    criticLoss = self.criticLoss(qPredBatch, qTargetBatch)
+                    criticLoss = (qPredBatch - qTargetBatch).pow(2).mean()
 
                     criticLoss.backward()
                     self.criticOptim.step()

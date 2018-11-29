@@ -22,22 +22,24 @@ import os
 
 # Files
 from HER.noise import OrnsteinUhlenbeckActionNoise as OUNoise
-from HER.replaybuffer import Buffer
+from HER.replaybuffer_her import Buffer
 from HER.actorcritic_her import Actor, Critic
 
+torch.set_num_threads(2)
+
 # Hyperparameters
-ACTOR_LR = 0.001
-CRITIC_LR = 0.01
-MINIBATCH_SIZE = 128
+ACTOR_LR = 0.0005
+CRITIC_LR = 0.0001
+MINIBATCH_SIZE = 64
 NUM_EPISODES = 100000
 MU = 0
 SIGMA = 0.2
 BUFFER_SIZE = 10000000
 DISCOUNT = 0.99
 TAU = 0.001
-WARMUP = 160
+WARMUP = 320
 EPSILON = 1.0
-EPSILON_DECAY = 1e-8
+EPSILON_DECAY = 1e-5
 
 
 class DDPG:
@@ -91,13 +93,11 @@ class DDPG:
     def getMaxAction(self, s):
         """Inputs: Current state of the episode
             Returns the action which maximizes the Q-value of the current state-action pair"""
+        noise = (self.epsilon * T.randn(self.act_dim))
 
-        #noise = (self.epsilon * Variable(torch.FloatTensor(self.noise()))).detach()
-        noise = (self.epsilon * T.randn(self.act_dim)).detach()
-
-        action = self.actor(s).detach()
+        action = self.actor(s)
         actionNoise = action + noise
-        return actionNoise
+        return actionNoise.detach()
 
 
     def train(self, animate=False):
@@ -106,13 +106,12 @@ class DDPG:
         
         for i in range(NUM_EPISODES):
             obs, goal = self.env.reset()
-            self.noise.reset()
             done = False
             ep_reward = 0
 
             observations = []
-            new_observations = []
             actions = []
+            new_observations = []
             terminals = []
 
             while not done:
@@ -138,22 +137,8 @@ class DDPG:
 
                 obs = obs_new
 
-            final_pose = env.get_pose(obs)
-
-            # Append all hindsight transitions
-            for o,a,t,n_o in zip(observations,actions,terminals,new_observations):
-                c_obs = T.FloatTensor(np.concatenate([o, final_pose]).astype(np.float32)).unsqueeze(0)
-                next_c_obs = T.FloatTensor(np.concatenate([n_o, final_pose]).astype(np.float32)).unsqueeze(0)
-
-                # Reward is 1 if we reached our terminal goal (in HER we always get rew 1 when we reach terminal goal)
-                r = 1. if t else 0
-
-                # Add transition
-                self.replayBuffer.append((c_obs, a, next_c_obs, r, t))
-
             # Training loop
             if len(self.replayBuffer) >= self.warmup:
-
                 curStateBatch, actionBatch, nextStateBatch, \
                 rewardBatch, terminalBatch = self.replayBuffer.sample_batch(self.batchSize)
                 curStateBatch = T.cat(curStateBatch)
@@ -166,7 +151,7 @@ class DDPG:
 
                 # Critic update
                 self.criticOptim.zero_grad()
-                criticLoss = self.criticLoss(qPredBatch, qTargetBatch)
+                criticLoss = (qPredBatch - qTargetBatch).pow(2).mean()
 
                 criticLoss.backward()
                 self.criticOptim.step()
@@ -180,11 +165,32 @@ class DDPG:
                 # Update Targets
                 self.updateTargets(self.targetActor, self.actor)
                 self.updateTargets(self.targetCritic, self.critic)
-                self.epsilon -= self.epsilon_decay
+
+                if i % 10 == 0 and done:
+                    print(qPredBatch)
+                    print("Episode {}/{}, ep reward: {}, actr loss: {}, critic loss: {}, success rate: {}".format(i,
+                                                                                                                  NUM_EPISODES,
+                                                                                                                  ep_reward,
+                                                                                                                  actorLoss,
+                                                                                                                  criticLoss,
+                                                                                                                  env.success_rate))
+
+            final_pose = env.get_pose(obs)
+            self.epsilon -= self.epsilon_decay
+
+            # Append all hindsight transitions
+            for o,a,t,o_ in zip(observations,actions,terminals,new_observations):
+                c_obs = T.FloatTensor(np.concatenate([o, final_pose]).astype(np.float32)).unsqueeze(0)
+                next_c_obs = T.FloatTensor(np.concatenate([o_, final_pose]).astype(np.float32)).unsqueeze(0)
+
+                # Reward is 1 if we reached our terminal goal (in HER we always get rew 1 when we reach terminal goal)
+                r = 1. if t else 0.
+
+                # Add transition
+                self.replayBuffer.append((c_obs, a, next_c_obs, r, t))
 
 
-                if i % 10 == 0:
-                    print("Episode {}/{}, ep reward: {}, actr loss: {}, critic loss: {}, success rate: {}".format(i, NUM_EPISODES, ep_reward, actorLoss, criticLoss, env.success_rate))
+
 
 
 if __name__=="__main__":
