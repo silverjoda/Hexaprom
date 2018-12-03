@@ -489,7 +489,6 @@ def f_wrapper(env, policy, animate):
         reward = 0
         done = False
         obs = env.reset()
-        policy.reset()
 
         pytorch_ES.vector_to_parameters(T.from_numpy(w.astype(np.float32)), policy.parameters())
 
@@ -561,13 +560,13 @@ def train(params):
 
     return -es.result.fbest, policy
 
-N = 8
+N = 14
 env_name = "Centipede{}-v0".format(N)
 env = gym.make(env_name)
 
 print(env.observation_space, env.action_space)
 #policyfunctions = [Baseline, ConvPolicy, SymPolicy, RecPolicy, AggregPolicy]
-policyfunctions = [PhasePolicy]
+policyfunctions = [ConvPolicy14]
 
 #===========
 # M = 100

@@ -177,8 +177,8 @@ def train(env, policy, V, params):
             # Step action
             s_1, r, done, _ = env.step(action.squeeze(0).numpy())
             step_ctr += 1
-            if step_ctr > 200:
-                done = True
+            # if step_ctr > 400:
+            #     done = True
 
             batch_rew += r
 
@@ -213,13 +213,13 @@ def train(env, policy, V, params):
             #batch_advantages = calc_advantages(V, params["gamma"], batch_states, batch_rewards, batch_new_states, batch_terminals)
             batch_advantages = calc_advantages_MC(params["gamma"], batch_rewards, batch_terminals)
 
-            update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantages)
+            if params["ppo"]:
+                update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantages)
+            else:
+                update_policy(policy, policy_optim, batch_states, batch_actions, batch_advantages)
 
-            # Update policy
-            loss_policy = update_policy(policy, policy_optim, batch_states, batch_actions, batch_advantages)
-            loss_policy = None
 
-            print("Episode {}/{}, loss_V: {}, loss_policy: {}, mean ep_rew: {}, std: {}".format(i, params["iters"], loss_V, loss_policy, batch_rew / params["batchsize"], T.exp(policy.log_std).detach().numpy()))
+            print("Episode {}/{}, loss_V: {}, loss_policy: {}, mean ep_rew: {}, std: {}, success: {}".format(i, params["iters"], None, None, batch_rew / params["batchsize"], T.exp(policy.log_std).detach().numpy(), env.success_rate))
 
             # Finally reset all batch lists
             batch_ctr = 0
@@ -324,11 +324,13 @@ def calc_advantages_MC(gamma, batch_rewards, batch_terminals):
 
 
 if __name__=="__main__":
-    env_name = "Centipede8-v0"
-    env = gym.make(env_name)
-    policy = ConvPolicy8(env)
+    #env_name = "Centipede8-v0"
+    #env = gym.make(env_name)
+    from envs.ant_reach import AntReach
+    env = AntReach()
+    policy = Policy(env)
     V = Valuefun(env)
-    params = {"iters" : 100000, "batchsize" : 64, "gamma" : 0.99, "policy_lr" : 0.007, "V_lr" : 0.007, "animate" : True}
+    params = {"iters" : 100000, "batchsize" : 32, "gamma" : 0.99, "policy_lr" : 0.007, "V_lr" : 0.007, "ppo" : True, "animate" : True}
     train(env, policy, V, params)
 
     # TODO: debug and test

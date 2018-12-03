@@ -23,6 +23,7 @@ import utils
 from HER.noise import OrnsteinUhlenbeckActionNoise as OUNoise
 from HER.replaybuffer_ddpg import Buffer
 from HER.actorcritic_ddpg import Actor, Critic
+from HER.ant_goal_env import AntG
 
 # Hyperparameters
 ACTOR_LR = 0.0001
@@ -156,14 +157,15 @@ class DDPG:
                     self.updateTargets(self.targetCritic, self.critic)
 
                     if i % 10 == 0 and done:
-                        print("Episode {}/{}, ep reward: {}, actr loss: {}, critic loss: {}".format(i, NUM_EPISODES, ep_reward, actorLoss, criticLoss))
+                        print("Episode {}/{}, ep reward: {}, actr loss: {}, critic loss: {}, success rate: {}".format(i, NUM_EPISODES, ep_reward, actorLoss, criticLoss,env.success_rate))
 
             self.epsilon -= self.epsilon_decay
 
 
 if __name__=="__main__":
     import gym
-    env = gym.make("Ant-v3")
+    #env = gym.make("Ant-v3")
+    env = AntG()
     agent = DDPG(env)
     #agent.loadCheckpoint(Path to checkpoint)
     agent.train(animate=True)

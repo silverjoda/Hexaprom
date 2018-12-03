@@ -103,7 +103,8 @@ class DDPG:
         print('Starting training...')
         
         for i in range(NUM_EPISODES):
-            obs, goal = self.env.reset()
+            obs = self.env.reset()
+            goal = self.env.goal
             done = False
             ep_reward = 0
 
