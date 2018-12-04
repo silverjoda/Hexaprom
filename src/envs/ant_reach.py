@@ -37,7 +37,7 @@ class AntReach:
         self.n_episodes = 0
         self.success_rate = 0
         self.success_queue = deque(maxlen=100)
-        self.xy_dev = 0.1
+        self.xy_dev = 0.2
         self.psi_dev = 0.3
         self.current_pose = None
 
@@ -127,7 +127,7 @@ class AntReach:
     def reached_goal(self, pose, goal):
         x,y,psi = pose
         xg,yg,psig = goal
-        return (x-xg)**2 < self.xy_dev and (y-yg)**2 < self.xy_dev and (psi-psig)**2 < self.psi_dev
+        return (x-xg)**2 < self.xy_dev and (y-yg)**2 < self.xy_dev
 
 
     def get_pose(self, obs):
@@ -150,7 +150,7 @@ class AntReach:
 
 
     def step(self, ctrl):
-        ctrl = [0]*8
+
         self.sim.data.ctrl[:] = ctrl
         self.sim.forward()
         self.sim.step()
@@ -163,17 +163,15 @@ class AntReach:
         x, y = obs[0:2]
         theta, phi, psi = quaternion.as_euler_angles(np.quaternion(*obs[3:7]))
         pose = (x,y,psi)
-        print(theta,phi,psi)
 
-        prev_dist  = np.linalg.norm(np.asarray(self.current_pose[0:2]) - np.asarray(self.goal[0:2]))
-        current_dist = np.linalg.norm(np.asarray(pose[0:2]) - np.asarray(self.goal[0:2]))
+        current_dist  = np.linalg.norm(np.asarray(self.current_pose[0:2]) - np.asarray(self.goal[0:2]))
+        prev_dist = np.linalg.norm(np.asarray(pose[0:2]) - np.asarray(self.goal[0:2]))
 
         # Check if goal has been reached
         reached_goal = self.reached_goal(pose, self.goal)
 
         # Reevaluate termination condition
         done = reached_goal or self.step_ctr > 400
-
 
         if reached_goal:
             print("SUCCESS")
@@ -183,11 +181,11 @@ class AntReach:
             self._update_stats(reached_goal)
 
         ctrl_effort = np.square(ctrl).sum() * 0.1
-        target_progress = (current_dist - prev_dist) * 20
+        target_progress = (current_dist - prev_dist) * 10
         target_trueness = 0
 
         r = 1. if reached_goal else 0.
-        r +=  target_progress + target_trueness - ctrl_effort
+        r +=  target_progress + target_trueness
 
         self.current_pose = pose
 

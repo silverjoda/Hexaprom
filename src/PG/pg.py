@@ -214,7 +214,7 @@ def train(env, policy, V, params):
             batch_advantages = calc_advantages_MC(params["gamma"], batch_rewards, batch_terminals)
 
             if params["ppo"]:
-                update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantages)
+                update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantages, params["ppo_update_iters"])
             else:
                 update_policy(policy, policy_optim, batch_states, batch_actions, batch_advantages)
 
@@ -232,12 +232,12 @@ def train(env, policy, V, params):
             batch_terminals = []
 
 
-def update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantages):
+def update_ppo(policy, policy_optim, batch_states, batch_actions, batch_advantages, update_iters):
     log_probs_old = policy.log_probs(batch_states, batch_actions).detach()
     c_eps = 0.2
 
     # Do ppo_update
-    for k in range(6):
+    for k in range(update_iters):
         log_probs_new = policy.log_probs(batch_states, batch_actions)
         r = T.exp(log_probs_new - log_probs_old)
         loss = -T.mean(T.min(r * batch_advantages, r.clamp(1 - c_eps, 1 + c_eps) * batch_advantages))
@@ -330,7 +330,7 @@ if __name__=="__main__":
     env = AntReach()
     policy = Policy(env)
     V = Valuefun(env)
-    params = {"iters" : 100000, "batchsize" : 32, "gamma" : 0.99, "policy_lr" : 0.007, "V_lr" : 0.007, "ppo" : True, "animate" : True}
+    params = {"iters" : 100000, "batchsize" : 32, "gamma" : 0.99, "policy_lr" : 0.007, "V_lr" : 0.007, "ppo" : True, "ppo_update_iters" : 3, "animate" : True}
     train(env, policy, V, params)
 
     # TODO: debug and test

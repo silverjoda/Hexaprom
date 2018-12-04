@@ -27,14 +27,14 @@ from HER.ant_goal_env import AntG
 
 # Hyperparameters
 ACTOR_LR = 0.0001
-CRITIC_LR = 0.001
-MINIBATCH_SIZE = 64
+CRITIC_LR = 0.0005
+MINIBATCH_SIZE = 32
 NUM_EPISODES = 100000
 MU = 0
 SIGMA = 0.2
 BUFFER_SIZE = 5000000
-DISCOUNT = 0.99
-TAU = 0.001
+DISCOUNT = 0.98
+TAU = 0.0007
 WARMUP = 160
 EPSILON = 1.0
 EPSILON_DECAY = 1e-6
@@ -117,8 +117,6 @@ class DDPG:
                 # Step episode
                 obs_new, r, done, _ = self.env.step(action)
                 step_ctr += 1
-                if step_ctr > 300:
-                    done = True
 
                 if animate:
                     self.env.render()
@@ -165,7 +163,8 @@ class DDPG:
 if __name__=="__main__":
     import gym
     #env = gym.make("Ant-v3")
-    env = AntG()
+    from envs.ant_reach import AntReach
+    env = AntReach()
     agent = DDPG(env)
     #agent.loadCheckpoint(Path to checkpoint)
     agent.train(animate=True)
